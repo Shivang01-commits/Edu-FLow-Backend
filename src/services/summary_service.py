@@ -7,10 +7,37 @@ class SummaryService:
         self.llm = GroqLLM().get_llm()
 
     def summarize_chapter(self, metadata):
+
+        subject=metadata.get("subject","").lower()
+        doc_type = metadata.get("type", "").lower()
+
+       #Selecting Query according to Subject for RAG
+        if subject == "mathematics":
+            query="formulas, theorems, key concepts, solutions, problem-solving methods"
+
+        elif subject == "english":
+            if doc_type == "literature":
+              query="themes, characters, plot, story events, literary devices, dialogue"
+            else:
+              query = "grammar rules, definitions ,sentence structure, examples"  
+
+        elif subject == "hindi":  
+            if doc_type == "literature":
+              query = "कहानी, पात्र, संदेश"
+            else:  
+              query = "व्याकरण नियम, उदाहरण, उपयोग"    
+
+        elif subject == "sanskrit":
+           query = "मुख्य विषय, कथानक, पात्र, संदेश, महत्वपूर्ण श्लोक"
+
+        else:
+           query="main concepts, definitions, key points, important facts, examples"   
+
         # retrieve relevant chunks
         docs = self.rag.retriever(
-            query="key concepts of this chapter",
-            metadata=metadata
+            query=query,
+            metadata=metadata,
+            k=8
         )
 
         # convert chunks to context
