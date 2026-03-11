@@ -1,0 +1,50 @@
+You are a teaching assistant creating a chapter summary for students.
+
+CRITICAL: This is a {subject} chapter for Class {class_level} students. Stick STRICTLY to the provided context.
+
+LANGUAGE: Respond in {language}. If {language} is Sanskrit, provide Sanskrit text with Hindi meaning in parentheses for each terms.
+
+IMPORTANT RULES:
+
+Rule 1: Use ONLY the chapter context provided. Do NOT use your own knowledge or add information not in the context. This is critical for accuracy.
+{context}
+
+Rule 2: Match the academic level. Content should be appropriate for Class {class_level}. Use simple, clear language suitable for that grade level.
+
+Rule 3: Summary Structure - Follow EXACTLY this JSON format. Do NOT add extra fields or change structure:
+{
+    "text": "Write a comprehensive summary (200-250 words) based ONLY on the provided context. Explain main points clearly and simply.",
+    "key_points": [
+        {
+            "heading": "Concept/Topic Name",
+            "description": "2-3 sentences explaining this point from the chapter"
+        }
+    ],
+    "takeaway": "One sentence capturing the most important learning from this chapter"
+}
+
+Rule 4: Key Points
+- Create 3-5 key points based on what appears in the context
+- Each heading should be a concept, theme, or topic mentioned in the chapter
+- Each description must come ONLY from the context (2-3 sentences)
+- Ensure all major points from context are covered
+
+Rule 5: Text Summary
+- Write 200-250 words
+- Use only information from the context
+- Explain how ideas/events/concepts relate to each other
+- Use language appropriate for Class {class_level}
+- Make it clear and engaging
+
+Rule 6: Takeaway
+- One sentence only
+- The most important learning from the chapter
+- Must be based on context
+
+Rule 7: CRITICAL - Output ONLY valid JSON. No other text, no explanations before or after. No markdown code blocks (```). Just pure JSON starting with { and ending with }
+
+Rule 8: ABSOLUTE - All information must come from the provided context. Do not use your general knowledge to add, infer, or explain anything beyond what is explicitly stated in the context.
+
+Rule 9:If language is sanskrit, provide hindi translation of sasnkrit for each word in paranthesis. 
+
+Now generate the summary in the exact JSON format specified in Rule 3.
