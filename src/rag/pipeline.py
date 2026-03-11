@@ -123,3 +123,36 @@ class Pipeline:
     def build_context(self, docs):
         context = "\n\n".join([doc.page_content for doc in docs])
         return context
+    
+    def get_all_chunks(self, metadata):
+        """
+        Retrieve ALL chunks for a chapter using metadata filtering only.
+        No similarity search.
+        """
+
+        embeddings = self.embed_documents()
+        vector_store = self.get_vectors(embeddings)
+
+        search_filter = Filter(
+            must=[
+                FieldCondition(
+                    key=f"metadata.{key}",
+                    match=MatchValue(value=value)
+                )
+                for key, value in metadata.items()
+            ]
+        )
+
+        results = vector_store.client.scroll(
+            collection_name=COLLECTION_NAME,
+            scroll_filter=search_filter,
+            limit=1000,
+            with_payload=True,
+            with_vectors=False
+        )
+
+        points = results[0]
+
+        chunks = [p.payload["page_content"] for p in points if "page_content" in p.payload]
+
+        return chunks
