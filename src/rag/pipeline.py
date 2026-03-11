@@ -39,7 +39,7 @@ class Pipeline:
     def embed_documents(self):
         embeddings = HuggingFaceEndpointEmbeddings(
             huggingfacehub_api_token=hf_api_key,
-            model="sentence-transformers/all-MiniLM-L6-v2",
+            model="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
         )
         return embeddings
 
@@ -75,6 +75,18 @@ class Pipeline:
                 field_schema=PayloadSchemaType.INTEGER,
             )
 
+            client.create_payload_index(
+                collection_name=COLLECTION_NAME,
+                field_name="metadata.type",
+                field_schema=PayloadSchemaType.KEYWORD
+            )
+
+            client.create_payload_index(
+                collection_name=COLLECTION_NAME,
+                field_name="metadata.medium",
+                field_schema=PayloadSchemaType.KEYWORD
+            )
+
         vectorstore = QdrantVectorStore(
             client=client, collection_name=COLLECTION_NAME, embedding=embeddings
         )
@@ -92,7 +104,7 @@ class Pipeline:
         vector_store.add_documents(chunks)
         return {"status": "success", "chunks_added": len(chunks)}
 
-    def retriever(self, query, metadata=None, k=4):
+    def retriever(self, query, metadata=None, k=8):
 
         embeddings = self.embed_documents()
         vector_store = self.get_vectors(embeddings)
