@@ -10,6 +10,9 @@ class PromptManager:
     def __init__(self):
         # Subjects that require STRICT context-only approach
         # These subjects need exact information from the chapter, no LLM knowledge
+        
+        self.BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
         self.strict_subjects = [
             "english_literature",
             "hindi_literature", 
@@ -61,12 +64,19 @@ class PromptManager:
         
         # Determine which prompt file to use (strict vs mixed)
         # Fallback to mixed for unknown subjects
+
+
         if combined_subject in self.strict_subjects:
-            prompt_file = "src/prompts/summary/strict_prompt.txt"
+            prompt_filename = "strict_prompt.txt"
         else:
             # Default to mixed for unknown subjects (safer approach)
-            prompt_file = "src/prompts/summary/mixed_prompt.txt"
+            prompt_filename = "mixed_prompt.txt"
         
+        # Build absolute path to prompt file
+        # This works regardless of where Flask app is run from
+
+        prompt_file = os.path.join(self.BASE_DIR, "summary", prompt_filename)
+      
         # Validate and get language
         # Fallback to English for unknown languages
         if medium not in self.supported_languages:
@@ -88,5 +98,5 @@ class PromptManager:
             language=language,
             context=context
         )
-        
+       
         return prompt

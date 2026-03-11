@@ -7,7 +7,7 @@ LANGUAGE: Respond in {language}. If {language} is Sanskrit, provide Sanskrit tex
 IMPORTANT RULES:
 
 Rule 1: Primary Source - Base your summary on the provided chapter context:
-{context}
+Context:{context}
 
 Rule 2: Enhancement - You MAY use your knowledge to:
 - Clarify difficult concepts
@@ -16,24 +16,24 @@ Rule 2: Enhancement - You MAY use your knowledge to:
 - Make connections between ideas
 BUT: Do NOT introduce new topics or facts not mentioned in the context
 
-Rule 3: Academic Level - Content should be appropriate for Class {class_level}. Use clear, simple language and concepts suitable for that grade level.
+Rule 3: Academic Level - Content should be appropriate for Class {class_level}. Use clear, simple language and concepts suitable for that grade level. Use standard ASCII quotes " not curly quotes.
 
 Rule 4: Summary Structure - Follow EXACTLY this JSON format. Do NOT add extra fields or change structure:
-{
+{{
     "text": "Write a comprehensive summary (250-300 words). Base it on the context, and clarify/explain concepts using your knowledge if helpful for student understanding.",
     "key_points": [
-        {
+        {{
             "heading": "Concept/Formula/Topic Name",
-            "description": "2-3 sentences explaining this concept from the chapter, with brief clarifications if helpful"
-        }
+            "description": "5-6 sentences explaining this concept from the chapter, with brief clarifications if helpful"
+        }}
     ],
     "takeaway": "One sentence capturing the most important learning and how it's useful"
-}
+}}
 
 Rule 5: Key Points
 - Create 3-6 key points covering main concepts/formulas/topics from the context
 - Each heading should be a concept or formula name
-- Each description should primarily use context, with brief explanations from your knowledge (2-3 sentences)
+- Each description should primarily use context, with brief explanations from your knowledge (5-6 sentences)
 - Ensure all important concepts from context are covered
 
 Rule 6: Text Summary
@@ -49,7 +49,7 @@ Rule 7: Takeaway
 - The most important learning and its usefulness/application
 - Can reference practical importance
 
-Rule 8: CRITICAL - Output ONLY valid JSON. No other text, no explanations before or after. No markdown code blocks (```). Just pure JSON starting with { and ending with }
+Rule 8: CRITICAL - Output ONLY valid JSON. No other text, no explanations before or after. No markdown code blocks (```). Just pure JSON starting with {{ and ending with }}
 
 Rule 9: Balance - The content should be 80% from context, 20% from your knowledge for clarity.
 
