@@ -5,7 +5,14 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface.embeddings import HuggingFaceEndpointEmbeddings
 from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, PayloadSchemaType, Filter, FieldCondition, MatchValue
+from qdrant_client.models import (
+    Distance,
+    VectorParams,
+    PayloadSchemaType,
+    Filter,
+    FieldCondition,
+    MatchValue,
+)
 
 load_dotenv()
 
@@ -17,7 +24,6 @@ COLLECTION_NAME = "chapters"
 
 
 class Pipeline:
-
     def load_pdf(self, file_path: str):
         """Load pdf and return langchain documents"""
         loader = PyMuPDFLoader(file_path)
@@ -26,63 +32,51 @@ class Pipeline:
 
     def split_documents(self, documents):
         """Split documents into smaller chunks"""
-        splitter = RecursiveCharacterTextSplitter(
-            chunk_size=500,
-            chunk_overlap=100
-        )
+        splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100)
         chunks = splitter.split_documents(documents)
         return chunks
 
     def embed_documents(self):
         embeddings = HuggingFaceEndpointEmbeddings(
             huggingfacehub_api_token=hf_api_key,
-            model="sentence-transformers/all-MiniLM-L6-v2"
+            model="sentence-transformers/all-MiniLM-L6-v2",
         )
         return embeddings
 
     def get_vectors(self, embeddings):
 
-        client = QdrantClient(
-            api_key=qdrant_api_key,
-            url=qdrant_url
-        )
+        client = QdrantClient(api_key=qdrant_api_key, url=qdrant_url)
 
         collections = client.get_collections().collections
         collection_names = [c.name for c in collections]
 
         if COLLECTION_NAME not in collection_names:
-
             client.create_collection(
                 collection_name=COLLECTION_NAME,
-                vectors_config=VectorParams(
-                    size=384,
-                    distance=Distance.COSINE
-                ),
+                vectors_config=VectorParams(size=384, distance=Distance.COSINE),
             )
 
             # create indexes for filtering
             client.create_payload_index(
                 collection_name=COLLECTION_NAME,
                 field_name="metadata.class",
-                field_schema=PayloadSchemaType.INTEGER
+                field_schema=PayloadSchemaType.INTEGER,
             )
 
             client.create_payload_index(
                 collection_name=COLLECTION_NAME,
                 field_name="metadata.subject",
-                field_schema=PayloadSchemaType.KEYWORD
+                field_schema=PayloadSchemaType.KEYWORD,
             )
 
             client.create_payload_index(
                 collection_name=COLLECTION_NAME,
                 field_name="metadata.chapter",
-                field_schema=PayloadSchemaType.INTEGER
+                field_schema=PayloadSchemaType.INTEGER,
             )
 
         vectorstore = QdrantVectorStore(
-            client=client,
-            collection_name=COLLECTION_NAME,
-            embedding=embeddings
+            client=client, collection_name=COLLECTION_NAME, embedding=embeddings
         )
 
         return vectorstore
@@ -96,10 +90,7 @@ class Pipeline:
         embeddings = self.embed_documents()
         vector_store = self.get_vectors(embeddings)
         vector_store.add_documents(chunks)
-        return {
-            "status": "success",
-            "chunks_added": len(chunks)
-        }
+        return {"status": "success", "chunks_added": len(chunks)}
 
     def retriever(self, query, metadata=None, k=4):
 
@@ -109,22 +100,14 @@ class Pipeline:
         if metadata:
             search_filter = Filter(
                 must=[
-                    FieldCondition(
-                    key=f"metadata.{key}",
-                        match=MatchValue(value=value)
-                    )
+                    FieldCondition(key=f"metadata.{key}", match=MatchValue(value=value))
                     for key, value in metadata.items()
                 ]
             )
-        docs = vector_store.similarity_search(
-            query=query,
-            k=k,
-            filter=search_filter
-        )
+        docs = vector_store.similarity_search(query=query, k=k, filter=search_filter)
 
         return docs
 
     def build_context(self, docs):
         context = "\n\n".join([doc.page_content for doc in docs])
         return context
-    

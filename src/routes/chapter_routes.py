@@ -12,12 +12,13 @@ UPLOAD_DIR = "data/pdfs"
 ingestion_service = IngestionService()
 summary_service = SummaryService()
 
+
 @router.post("/upload")
 async def upload_chapter(
     file: UploadFile = File(...),
     class_level: int = Form(...),
     subject: str = Form(...),
-    chapter: int = Form(...)
+    chapter: int = Form(...),
 ):
     """
     Teacher uploads a chapter PDF.
@@ -36,34 +37,21 @@ async def upload_chapter(
     metadata = {
         "class": class_level,
         "subject": subject.lower().replace(" ", "_"),
-        "chapter": chapter
+        "chapter": chapter,
     }
 
-    result = ingestion_service.ingest_pdf(
-        file_path=file_path,
-        metadata=metadata
-    )
+    result = ingestion_service.ingest_pdf(file_path=file_path, metadata=metadata)
 
-    return {
-        "message": "Chapter uploaded and processed successfully",
-        "result": result
-    }
+    return {"message": "Chapter uploaded and processed successfully", "result": result}
+
 
 @router.get("/summary")
-def generate_summary(
-    class_level: int,
-    subject: str,
-    chapter: int
-):
+def generate_summary(class_level: int, subject: str, chapter: int):
     """
     Generate summary of a chapter using RAG.
     """
 
-    metadata = {
-        "class": class_level,
-        "subject": subject,
-        "chapter": chapter
-    }
+    metadata = {"class": class_level, "subject": subject, "chapter": chapter}
 
     summary = summary_service.summarize_chapter(metadata)
 
@@ -71,5 +59,5 @@ def generate_summary(
         "class": class_level,
         "subject": subject,
         "chapter": chapter,
-        "summary": summary
+        "summary": summary,
     }

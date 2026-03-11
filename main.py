@@ -5,6 +5,7 @@ app = FastAPI()
 
 app.include_router(router=router)
 
+
 @app.get("/")
 async def root():
     return "Backend running successfully!"
