@@ -45,6 +45,9 @@ class SummaryService:
             
             # Step 3: Build context from retrieved chunks
             context = self.rag.build_context(docs)
+
+            if not context.strip():
+                raise ValueError("RAG returned empty context")
             
             # Step 4: Get prompt from PromptManager
             prompt = self.prompt_manager.get_summary_prompt(
@@ -107,7 +110,8 @@ class SummaryService:
 
                 if not response:
                     raise ValueError("LLM returned None response")
-                    response_text = getattr(response, "content", "")
+                
+                response_text = getattr(response, "content", "")
 
                 if not response_text or not response_text.strip():
                     raise ValueError("LLM returned empty content")
