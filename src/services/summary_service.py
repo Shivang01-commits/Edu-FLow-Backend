@@ -42,6 +42,8 @@ class SummaryService:
                 metadata=metadata,
                 k=8  # Get 8 chunks for better coverage
             )
+            if not docs:
+                raise ValueError("No documents retrieved from RAG")
             
             # Step 3: Build context from retrieved chunks
             context = self.rag.build_context(docs)
@@ -107,7 +109,7 @@ class SummaryService:
                 # Invoke LLM
                 response = self.llm.invoke(prompt)
                 response_text = response.content
-
+                
                 if not response:
                     raise ValueError("LLM returned None response")
                 
