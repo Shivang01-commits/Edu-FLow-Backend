@@ -4,8 +4,8 @@ logger = logging.getLogger(__name__)
 
 
 class ReduceService:
-    def __init__(self, prompt_manager, parser):
-        self.prompt_manager = prompt_manager
+    def __init__(self, prompt_returner, parser):
+        self.prompt_returner = prompt_returner
         self.parser = parser
 
     def combine_summaries(self, summaries, subject, class_level):
@@ -94,11 +94,12 @@ class ReduceService:
 
         combined_summaries = "\n\n".join(batch_summaries)
 
-        final_prompt = self.prompt_manager.get_summary_prompt(
+        final_prompt = self.prompt_returner.get_summary_prompt(
             subject=subject,
             doc_type=doc_type,
             class_level=class_level,
             context=combined_summaries,
+            prompt_selector="reduce",
             medium=medium,
         )
 

@@ -1,9 +1,10 @@
 import logging
 import time
 import tiktoken
-
+from src.prompts.prompt_returner import PromptReturner
 logger = logging.getLogger(__name__)
 
+prompt_returner=PromptReturner()
 
 class MapService:
     def __init__(self, llm, max_tokens_per_batch=2000):
@@ -44,14 +45,8 @@ class MapService:
 
             combined_text = "\n\n[New Section]\n\n".join(batch)
 
-            prompt = f"""You are a teaching assistant. Summarize the following sections from a {subject} chapter for Class {class_level} students.
-            LANGUAGE: Respond in {medium}. Do Not Add new Topics or Concepts which are not in sections below.
-            Sections to summarize:
-            {combined_text}
-            Summarize the section in 4-5 sentences (max 150 words).
-            Focus only on key ideas.
-            Return ONLY the summary text, no JSON, no formatting."""
-
+            prompt = prompt_returner.get_summary_prompt(subject=subject,doc_type=type,class_level=class_level,context=combined_text,prompt_selector="map",medium=medium)
+            
             response = self.llm.invoke(prompt)
             # print(response.response_metadata)
 
