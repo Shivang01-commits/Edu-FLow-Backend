@@ -18,7 +18,6 @@ class MapService:
 
     def summarize_batches(self, chunks, subject, class_level):
 
-
         batches = []
         current_batch = []
         current_tokens = 0
