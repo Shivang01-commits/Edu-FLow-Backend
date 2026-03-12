@@ -36,6 +36,7 @@ class LLMJsonParser:
 
                 # Invoke LLM
                 response = self.llm.invoke(prompt,reasoning_effort="low")
+                # print(response.response_metadata)
                 response_text = response.content
 
                 logger.info(f"FULL LLM RESPONSE: {response}")

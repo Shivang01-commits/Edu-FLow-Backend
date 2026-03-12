@@ -53,6 +53,8 @@ class MapService:
             Return ONLY the summary text, no JSON, no formatting."""
 
             response = self.llm.invoke(prompt)
+            # print(response.response_metadata)
+
 
             if not response:
                 raise ValueError("LLM returned None response")
@@ -62,7 +64,7 @@ class MapService:
             if summary_text:
                 batch_summaries.append(summary_text)
 
-            time.sleep(1.5)
+            time.sleep(10)
         
         logger.info(f"Batch summaries generated: {len(batch_summaries)}")
 
