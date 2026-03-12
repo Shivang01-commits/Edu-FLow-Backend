@@ -35,9 +35,11 @@ class LLMJsonParser:
                 logger.info(f"LLM attempt {attempt + 1}/{max_retries + 1}")
 
                 # Invoke LLM
-                response = self.llm.invoke(prompt)
+                response = self.llm.invoke(prompt,reasoning_effort="low")
                 response_text = response.content
 
+                logger.info(f"FULL LLM RESPONSE: {response}")
+                
                 if not response:
                     raise ValueError("LLM returned None response")
 
@@ -120,7 +122,7 @@ class LLMJsonParser:
         Remove markdown code blocks and extra whitespace.
         """
         response_text = response_text.strip()
-
+        
         if response_text.startswith("```json"):
             response_text = response_text[7:]
         elif response_text.startswith("```"):
@@ -129,6 +131,10 @@ class LLMJsonParser:
         if response_text.endswith("```"):
             response_text = response_text[:-3]
 
+        match = re.search(r"\{.*\}", response_text, re.DOTALL)
+        if match:
+            response_text = match.group()
+    
         return response_text.strip()
 
     def _repair_json(self, response_text):
@@ -148,6 +154,11 @@ class LLMJsonParser:
             if not response_text.rstrip().endswith(('"', "}", "]")):
                 response_text = response_text.rstrip() + '"'
 
+         # escape unescaped quotes
+        response_text = response_text.replace('\n"', '\\n"')       
+        # fix missing commas between fields
+        response_text = re.sub(r'"}\s*"{', '"}, {"', response_text)
+        
         return response_text
 
     def _validate_json_structure(self, parsed):

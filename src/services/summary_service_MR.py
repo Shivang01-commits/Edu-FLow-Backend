@@ -20,10 +20,10 @@ class SummaryService:
         self.max_retries = 2
         self.batch_size = 3  # Batch 3 chunks per request
         self.retry_delay = 1  # seconds between retries
-        self.map_service = MapService(self.llm, self.batch_size)
+        self.map_service = MapService(self.llm)
         self.reduce_service = ReduceService(self.prompt_manager, self.parser)
 
-    def summarize_chapter_mapreduce(self, metadata):
+    def summarize_chapter_map_reduce(self, metadata):
         """
         Generate a summary using Map-Reduce pattern.
 
@@ -63,7 +63,7 @@ class SummaryService:
             # Step 2 (MAP): Summarize chunks in batches
             logger.info("Step 2 (MAP): Summarizing chunks in batches...")
             batch_summaries = self.map_service.summarize_batches(
-                all_chunks, subject, doc_type, class_level, medium
+                chunks=all_chunks,subject= subject, type=doc_type, class_level=class_level, medium=medium
             )
 
             logger.info(f"Generated {len(batch_summaries)} batch summaries")

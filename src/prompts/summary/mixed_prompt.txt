@@ -16,9 +16,13 @@ Rule 2: Enhancement - You MAY use your knowledge to:
 - Make connections between ideas
 BUT: Do NOT introduce new topics or facts not mentioned in the context
 
-Rule 3: Academic Level - Content should be appropriate for Class {class_level}. Use clear, simple language and concepts suitable for that grade level. Use standard ASCII quotes " not curly quotes.
+Rule 3: Academic Level - Content should be appropriate for Class {class_level}. Use clear, simple language and concepts suitable for that grade level. Use standard ASCII quotes " not curly quotes. Do NOT use quotation marks inside the text fields.
+Avoid using " inside sentences.
 
-Rule 4: Summary Structure - Follow EXACTLY this JSON format. Do NOT add extra fields or change structure:
+Rule 4: Summary Structure - Follow EXACTLY this JSON format. Return ONLY valid JSON.
+Do not include any text before or after. Your entire response must be a single JSON object.
+Ensure all quotes are closed and commas are correct. Do NOT add extra fields or change structure:
+
 {{
     "text": "Write a comprehensive summary (250-300 words). Base it on the context, and clarify/explain concepts using your knowledge if helpful for student understanding.",
     "key_points": [

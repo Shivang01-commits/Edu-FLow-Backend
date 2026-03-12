@@ -133,22 +133,24 @@ class Pipeline:
         Retrieve ALL chunks for a chapter using metadata filtering only.
         No similarity search.
         """
-
-        embeddings = self.embed_documents()
-        vector_store = self.get_vectors(embeddings)
+        client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
 
         search_filter = Filter(
             must=[
-                FieldCondition(key=f"metadata.{key}", match=MatchValue(value=value))
-                for key, value in metadata.items()
-            ]
-        )
+                   FieldCondition(
+                    key=f"metadata.{key}",
+                     match=MatchValue(value=value)
+                    )
+                   for key, value in metadata.items()
+                       if value not in ["", None]
+                ]
+            )
 
         all_points = []
         next_page = None
 
         while True:
-            points, next_page = vector_store.client.scroll(
+            points, next_page = client.scroll(
                 collection_name=COLLECTION_NAME,
                 scroll_filter=search_filter,
                 limit=100,
