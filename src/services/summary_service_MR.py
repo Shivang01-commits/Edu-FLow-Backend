@@ -74,14 +74,14 @@ class SummaryService:
             
             # Step 3 (REDUCE): Combine batch summaries into final summary
             logger.info("Step 3 (REDUCE): Creating final summary...")
-            final_summary = self.reduce_service.generate_final_summary(
+            final_summary = self.reduce_service.hierarchical_reduce(
                 batch_summaries,
                 subject,
                 doc_type,
                 class_level,
                 medium
             )
-            
+
             # Step 4: Build response
             result = {
                 "class": class_level,
