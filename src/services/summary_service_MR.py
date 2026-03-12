@@ -1,6 +1,7 @@
 from src.rag.pipeline import Pipeline
 from src.llms.groq import GroqLLM
 from src.prompts.prompt_manager import PromptManager
+from src.prompts.prompt_returner import PromptReturner
 import logging
 import time
 from src.utils.llm_json_parser import LLMJsonParser
@@ -17,11 +18,12 @@ class SummaryService:
         self.llm = GroqLLM().get_llm()
         self.parser = LLMJsonParser(self.llm)
         self.prompt_manager = PromptManager()
+        self.prompt_returner=PromptReturner()
         self.max_retries = 2
         self.batch_size = 3  # Batch 3 chunks per request
         self.retry_delay = 1  # seconds between retries
         self.map_service = MapService(self.llm)
-        self.reduce_service = ReduceService(self.prompt_manager, self.parser)
+        self.reduce_service = ReduceService(self.prompt_returner, self.parser)
 
     def summarize_chapter_map_reduce(self, metadata):
         """
@@ -29,17 +31,6 @@ class SummaryService:
 
         Step 1 (Map): Split chapter into batches and summarize each batch
         Step 2 (Reduce): Combine batch summaries into final summary
-
-        This approach:
-        - Processes entire chapter (no content loss)
-        - Stays within token limits (~3.5K per request)
-        - Stays within rate limits (~8-10 requests for average chapter)
-
-        Args:
-            metadata (dict): Contains class, subject, type, chapter, medium
-
-        Returns:
-            dict: Summary response with consistent structure
         """
         try:
             logger.info("=== Starting Map-Reduce Summary ===")
@@ -92,34 +83,3 @@ class SummaryService:
         except Exception as e:
             logger.error(f"Error in summarize_chapter_mapreduce: {e}")
             return {"error": "Failed to generate summary", "details": str(e)}
-
-    def _get_rag_query(self, subject, doc_type):
-        """
-        Determine the best RAG query based on subject and type.
-        """
-        subject = subject.lower()
-        doc_type = doc_type.lower()
-
-        if subject == "mathematics":
-            return "formulas, theorems, key concepts, solutions, problem-solving methods, examples"
-
-        elif subject == "english" and doc_type == "literature":
-            return "chapter summary, key ideas, main concepts, important facts"
-
-        elif subject == "english" and doc_type == "grammar":
-            return "grammar rules, sentence structure, tenses, examples, usage, corrections"
-
-        elif subject == "hindi" and doc_type == "literature":
-            return "मुख्य विषय, विचार, पाठ, संदेश, महत्वपूर्ण बातें, उदाहरण"
-
-        elif subject == "hindi" and doc_type == "grammar":
-            return "व्याकरण नियम, विधि, उदाहरण, संरचना, शब्द, वाक्य"
-
-        elif subject == "sanskrit":
-            return "मुख्य विषय, श्लोक, पाठ, संदेश, कथानक, महत्वपूर्ण विचार, उदाहरण"
-
-        elif subject in ["physics", "chemistry"]:
-            return "key concepts, processes, reactions, formulas, laws, important facts, examples"
-
-        else:
-            return "main concepts, definitions, key points, important facts, examples, explanations"

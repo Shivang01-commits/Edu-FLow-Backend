@@ -1,7 +1,7 @@
 import logging
 import json
 import re
-
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +90,8 @@ class LLMJsonParser:
 
                 attempt += 1
                 logger.info(f"Retrying... (attempt {attempt + 1})")
+
+            time.sleep(10)
 
         raise ValueError(f"Failed to generate summary after {max_retries + 1} attempts")
 
