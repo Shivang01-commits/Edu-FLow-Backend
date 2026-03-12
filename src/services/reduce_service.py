@@ -4,7 +4,6 @@ logger = logging.getLogger(__name__)
 
 
 class ReduceService:
-
     def __init__(self, prompt_manager, parser):
         self.prompt_manager = prompt_manager
         self.parser = parser
@@ -27,14 +26,13 @@ class ReduceService:
     Write a concise combined summary (5–6 sentences) that captures the main ideas.
     Return ONLY the summary text.
     """
-        
+
         response = self.parser.llm.invoke(prompt)
 
         if not response:
             raise ValueError("LLM returned None response")
 
         return getattr(response, "content", "").strip()
-    
 
     def hierarchical_reduce(
         self,
@@ -64,7 +62,7 @@ class ReduceService:
         group_size = 4
 
         for i in range(0, len(batch_summaries), group_size):
-            group = batch_summaries[i:i + group_size]
+            group = batch_summaries[i : i + group_size]
 
             combined = self.combine_summaries(
                 group,
@@ -80,8 +78,8 @@ class ReduceService:
             subject,
             doc_type,
             class_level,
-             medium,
-         )
+            medium,
+        )
 
     def generate_final_summary(
         self,

@@ -50,12 +50,20 @@ async def upload_chapter(
 
 
 @router.get("/summary")
-def generate_summary(class_level: int, subject: str, chapter: int,type: str, medium: str):
+def generate_summary(
+    class_level: int, subject: str, chapter: int, type: str, medium: str
+):
     """
     Generate summary of a chapter using RAG.
     """
 
-    metadata = {"class": class_level, "subject": subject, "chapter": chapter,"type":type,"medium":medium}
+    metadata = {
+        "class": class_level,
+        "subject": subject,
+        "chapter": chapter,
+        "type": type,
+        "medium": medium,
+    }
 
     summary = summary_service.summarize_chapter(metadata)
 

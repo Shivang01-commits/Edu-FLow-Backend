@@ -6,12 +6,10 @@ logger = logging.getLogger(__name__)
 
 
 class MapService:
-
     def __init__(self, llm, max_tokens_per_batch=2000):
         self.llm = llm
         self.max_tokens_per_batch = max_tokens_per_batch
         self.tokenizer = tiktoken.get_encoding("cl100k_base")
-    
 
     def count_tokens(self, text):
         return len(self.tokenizer.encode(text))
@@ -24,7 +22,6 @@ class MapService:
 
         # build token-aware batches
         for chunk in chunks:
-
             chunk_tokens = self.count_tokens(chunk)
 
             if current_tokens + chunk_tokens > self.max_tokens_per_batch:
@@ -41,7 +38,6 @@ class MapService:
         batch_summaries = []
 
         for batch_num, batch in enumerate(batches, start=1):
-
             logger.info(f"Processing batch {batch_num}/{len(batches)}")
 
             combined_text = "\n\n[New Section]\n\n".join(batch)
