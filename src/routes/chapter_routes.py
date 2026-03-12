@@ -2,7 +2,7 @@ from fastapi import APIRouter, UploadFile, File, Form
 import os
 
 from src.services.ingestion_service import IngestionService
-from src.services.summary_service import SummaryService
+from src.services.summary_service_MR import SummaryService
 
 
 router = APIRouter(prefix="/chapters", tags=["Chapters"])
@@ -18,9 +18,9 @@ async def upload_chapter(
     file: UploadFile = File(...),
     class_level: int = Form(...),
     subject: str = Form(...),
-    type: str = Form(...),
+    type: str = Form(" "),
     chapter: int = Form(...),
-    medium: str = Form(...),
+    medium: str = Form("english"),
 ):
     """
     Teacher uploads a chapter PDF.
@@ -51,7 +51,7 @@ async def upload_chapter(
 
 @router.get("/summary")
 def generate_summary(
-    class_level: int, subject: str, chapter: int, type: str, medium: str
+    class_level: int, subject: str, chapter: int, type: str="", medium: str="english"
 ):
     """
     Generate summary of a chapter using RAG.
@@ -65,6 +65,6 @@ def generate_summary(
         "medium": medium,
     }
 
-    summary = summary_service.summarize_chapter(metadata)
+    summary = summary_service.summarize_chapter_map_reduce(metadata)
 
     return summary

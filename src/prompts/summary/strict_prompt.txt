@@ -9,9 +9,14 @@ IMPORTANT RULES:
 Rule 1: Use the context as the primary source. Do not introduce topics not mentioned in the context.This is critical for accuracy
 Conext:{context}
 
-Rule 2: Match the academic level. Content should be appropriate for Class {class_level}. Use simple, clear language suitable for that grade level. Use standard ASCII quotes " not curly quotes. 
+Rule 2: Match the academic level. Content should be appropriate for Class {class_level}. Use simple, clear language suitable for that grade level. Use standard ASCII quotes " not curly quotes. Do NOT use quotation marks inside the text fields.
+Avoid using " inside sentences.
 
-Rule 3: Summary Structure - Follow EXACTLY this JSON format. Do NOT add extra fields or change structure:
+Rule 3: Summary Structure - Follow EXACTLY this JSON format. Do NOT add extra fields or change structure.Return ONLY valid JSON.
+Do not include any text before or after.
+Your entire response must be a single JSON object.
+Ensure all quotes are closed and commas are correct.:
+
 {{
     "text": "Write a comprehensive summary (200-250 words) based ONLY on the provided context. Explain main points clearly and simply.",
     "key_points": [

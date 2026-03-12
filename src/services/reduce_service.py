@@ -48,6 +48,7 @@ class ReduceService:
 
         # If summaries are small, skip hierarchy
         if len(batch_summaries) <= 6:
+            logger.info("No need of Heirarichal Reduce")
             return self.generate_final_summary(
                 batch_summaries,
                 subject,
