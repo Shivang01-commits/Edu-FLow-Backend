@@ -1,25 +1,49 @@
 import logging
 import time
+import tiktoken
 
 logger = logging.getLogger(__name__)
 
 
 class MapService:
 
-    def __init__(self, llm, batch_size=3):
+    def __init__(self, llm, max_tokens_per_batch=2000):
         self.llm = llm
-        self.batch_size = batch_size
+        self.max_tokens_per_batch = max_tokens_per_batch
+        self.tokenizer = tiktoken.get_encoding("cl100k_base")
+    
+
+    def count_tokens(self, text):
+        return len(self.tokenizer.encode(text))
 
     def summarize_batches(self, chunks, subject, class_level):
+
+
+        batches = []
+        current_batch = []
+        current_tokens = 0
+
+        # build token-aware batches
+        for chunk in chunks:
+
+            chunk_tokens = self.count_tokens(chunk)
+
+            if current_tokens + chunk_tokens > self.max_tokens_per_batch:
+                batches.append(current_batch)
+                current_batch = []
+                current_tokens = 0
+
+            current_batch.append(chunk)
+            current_tokens += chunk_tokens
+
+        if current_batch:
+            batches.append(current_batch)
+
         batch_summaries = []
 
-        for i in range(0, len(chunks), self.batch_size):
-            batch = chunks[i:i+self.batch_size]
-            batch_num = (i // self.batch_size) + 1
+        for batch_num, batch in enumerate(batches, start=1):
 
-            total_batches = (len(chunks) + self.batch_size - 1) // self.batch_size
-            logger.info(f"Processing batch {batch_num}/{total_batches}")
-
+            logger.info(f"Processing batch {batch_num}/{len(batches)}")
 
             combined_text = "\n\n[New Section]\n\n".join(batch)
 

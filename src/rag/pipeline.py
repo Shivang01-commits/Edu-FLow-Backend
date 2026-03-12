@@ -102,6 +102,10 @@ class Pipeline:
         embeddings = self.embed_documents()
         vector_store = self.get_vectors(embeddings)
         vector_store.add_documents(chunks)
+           
+        docs = vector_store.similarity_search("test", k=1)
+        print(docs[0].metadata)
+
         return {"status": "success", "chunks_added": len(chunks)}
 
     def retriever(self, query, metadata=None, k=8):
@@ -143,16 +147,36 @@ class Pipeline:
             ]
         )
 
-        results = vector_store.client.scroll(
-            collection_name=COLLECTION_NAME,
-            scroll_filter=search_filter,
-            limit=1000,
-            with_payload=True,
-            with_vectors=False
-        )
+        all_points=[]
+        next_page=None
 
-        points = results[0]
+        while True:
+            points,next_page = vector_store.client.scroll(
+                collection_name=COLLECTION_NAME,
+                scroll_filter=search_filter,
+                limit=100,
+                with_payload=True,
+                with_vectors=False
+            )
+            all_points.extend(points)
+            if next_page is None:
+                break
 
-        chunks = [p.payload["page_content"] for p in points if "page_content" in p.payload]
+        chunks = []
 
-        return chunks
+        for p in all_points:
+            payload = p.payload
+
+            text = payload.get("page_content", "")
+            page = payload.get("metadata", {}).get("page", 0)
+
+            chunks.append({
+              "text": text,
+              "page": page
+            })
+
+        # sort by page
+        chunks.sort(key=lambda x: x["page"])
+
+        return [c["text"] for c in chunks]
+
