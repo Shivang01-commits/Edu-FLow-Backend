@@ -24,5 +24,6 @@ dependencies = [
     "python-multipart>=0.0.22",
     "qdrant-client>=1.17.0",
     "sqlalchemy>=2.0.48",
+    "tiktoken>=0.12.0",
     "uvicorn>=0.41.0",
 ]
