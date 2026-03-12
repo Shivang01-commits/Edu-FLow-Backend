@@ -1,16 +1,26 @@
-from fastapi import APIRouter, UploadFile, File, Form
 import os
-
+from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
+from src.db.main import get_db
+from sqlalchemy.orm import Session
 from src.services.ingestion_service import IngestionService
 from src.services.summary_service_MR import SummaryService
+from src.services.db_summary_service import DBSummaryService
+from src.models.chapter_schema import GenerateSummarySchema
 
+# TODO: Use this method for authorization of links
+# from src.core.jwt_handler import get_current_user
 
+# !remove this in future
 router = APIRouter(prefix="/chapters", tags=["Chapters"])
+
+# TODO: Use this method for authorization of links
+# router = APIRouter(prefix="/chapters", tags=["Chapters"], dependencies=Depends(get_current_user))
 
 UPLOAD_DIR = "data/pdfs"
 
 ingestion_service = IngestionService()
 summary_service = SummaryService()
+db_summary_service = DBSummaryService()
 
 
 @router.post("/upload")
@@ -49,13 +59,44 @@ async def upload_chapter(
     return {"message": "Chapter uploaded and processed successfully", "result": result}
 
 
-@router.get("/summary")
+@router.post("/generate-summary", status_code=201)
 def generate_summary(
-    class_level: int, subject: str, chapter: int, type: str="", medium: str="english"
+    data: GenerateSummarySchema,
+    db: Session = Depends(get_db),
 ):
-    """
-    Generate summary of a chapter using RAG.
-    """
+
+    metadata = {
+        "class": data.class_level,
+        "subject": data.subject.lower().replace(" ", "_"),
+        "chapter": data.chapter,
+        "type": data.type,
+        "medium": data.medium,
+    }
+
+    existing = db_summary_service.get_summary(db, metadata)
+
+    if existing:
+        return existing.content
+
+    summary = summary_service.summarize_chapter_map_reduce(metadata)
+
+    if not summary or "error" in summary:
+        raise HTTPException(status_code=500, detail="Summary generation failed")
+
+    db_summary_service.save_summary(db, metadata, summary)
+
+    return summary
+
+
+@router.get("/summary")
+def get_summary(
+    class_level: int,
+    subject: str,
+    chapter: int,
+    type: str = "",
+    medium: str = "english",
+    db: Session = Depends(get_db),
+):
 
     metadata = {
         "class": class_level,
@@ -65,6 +106,9 @@ def generate_summary(
         "medium": medium,
     }
 
-    summary = summary_service.summarize_chapter_map_reduce(metadata)
+    summary = db_summary_service.get_summary(db, metadata)
 
-    return summary
+    if not summary:
+        raise HTTPException(status_code=404, detail="Summary not found")
+
+    return summary.content
