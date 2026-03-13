@@ -1,6 +1,5 @@
 from src.rag.pipeline import Pipeline
 from src.llms.groq import GroqLLM
-from src.prompts.prompt_manager import PromptManager
 from src.prompts.prompt_returner import PromptReturner
 import logging
 import time
@@ -17,7 +16,6 @@ class SummaryService:
         self.rag = Pipeline()
         self.llm = GroqLLM().get_llm()
         self.parser = LLMJsonParser(self.llm)
-        self.prompt_manager = PromptManager()
         self.prompt_returner=PromptReturner()
         self.max_retries = 2
         self.batch_size = 3  # Batch 3 chunks per request
