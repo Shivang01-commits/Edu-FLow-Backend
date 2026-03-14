@@ -1,0 +1,30 @@
+[project]
+name = "padhai"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "bcrypt>=5.0.0",
+    "chromadb>=1.5.5",
+    "fastapi>=0.133.1",
+    "huggingface-hub>=1.6.0",
+    "langchain>=1.2.10",
+    "langchain-community>=0.4.1",
+    "langchain-groq>=1.1.2",
+    "langchain-huggingface>=1.2.1",
+    "langchain-openai>=1.1.11",
+    "langchain-qdrant>=1.1.0",
+    "passlib>=1.7.4",
+    "psycopg2-binary>=2.9.11",
+    "pydantic[email]>=2.12.5",
+    "pyjwt>=2.11.0",
+    "pymupdf>=1.27.1",
+    "python-dotenv>=1.2.2",
+    "python-jose>=3.5.0",
+    "python-multipart>=0.0.22",
+    "qdrant-client>=1.17.0",
+    "sqlalchemy>=2.0.48",
+    "tiktoken>=0.12.0",
+    "uvicorn>=0.41.0",
+]
