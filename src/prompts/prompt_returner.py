@@ -11,33 +11,17 @@ class PromptReturner:
 
     def __init__(self):
         self.BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-        self.supported_languages = ["english", "hindi", "sanskrit"]
 
     def get_summary_prompt(
-        self, subject, doc_type, class_level, context, prompt_selector:str,medium="english"
+        self, class_grade:int,subject:str,chapter_title:str,chapter_text
     ):
         """
         Get summary prompt for students to understand the chapter.
         """
         # Normalize inputs
         subject = subject.lower().strip()
-        doc_type = doc_type.lower().strip() if doc_type else ""
-        medium = medium.lower().strip() if medium else "english"
 
-        # Combine subject and type if both present
-        if doc_type:
-            combined_subject = f"{subject}_{doc_type}"
-        else:
-            combined_subject = subject
-
-        # Get language name
-        language = self._get_language(medium)
-
-        # Load prompt file
-        if prompt_selector=="reduce":
-            prompt_file = os.path.join(self.BASE_DIR, "summary", "reduce_prompt.txt")
-        else:
-            prompt_file= os.path.join(self.BASE_DIR, "summary", "map_prompt.txt") 
+        prompt_file= os.path.join(self.BASE_DIR,"summary_prompt.txt") 
 
         try:
             with open(prompt_file, "r", encoding="utf-8") as f:
@@ -49,26 +33,126 @@ class PromptReturner:
 
         # Replace placeholders
         prompt = prompt_template.format(
-            subject=combined_subject,
-            class_level=class_level,
-            language=language,
-            context=context,
+            chapter_text=chapter_text,
+            class_grade=class_grade,
+            subject=subject,
+            chapter_title=chapter_title
+        )
+        return prompt
+
+    def get_quiz_prompt(
+        self, class_grade:int,subject:str,chapter_title:str,chapter_summary
+    ):
+        """
+        Get quiz prompt for students to understand the chapter.
+        """
+        # Normalize inputs
+        subject = subject.lower().strip()
+
+        prompt_file= os.path.join(self.BASE_DIR,"quiz_prompt.txt") 
+
+        try:
+            with open(prompt_file, "r", encoding="utf-8") as f:
+                prompt_template = f.read()
+            logger.info(f"Loaded prompt from: {prompt_file}")
+        except FileNotFoundError:
+            logger.error(f"Prompt file not found: {prompt_file}")
+            raise FileNotFoundError(f"Prompt file not found: {prompt_file}")
+
+        # Replace placeholders
+        prompt = prompt_template.format(
+            chapter_summary=chapter_summary,
+            class_grade=class_grade,
+            subject=subject,
+            chapter_title=chapter_title
         )
         return prompt
 
 
-    def get_quiz_prompt(self, subject, class_level, context, medium="english"):
-        pass
+    def get_ppt_prompt(
+        self, class_grade:int,subject:str,chapter_title:str,chapter_summary
+    ):
+        """
+        Get ppt prompt for students to understand the chapter.
+        """
+        # Normalize inputs
+        subject = subject.lower().strip()
 
-    def get_qa_prompt(self, subject, class_level, context, medium="english"):
-        pass
+        prompt_file= os.path.join(self.BASE_DIR,"ppt_prompt.txt") 
 
-    def _get_language(self, medium):
-      
-        language_map = {
-            "english": "English",
-            "hindi": "Hindi",
-            "sanskrit": "Sanskrit"
-        }
-        language = language_map.get(medium, "English")
-        return language
+        try:
+            with open(prompt_file, "r", encoding="utf-8") as f:
+                prompt_template = f.read()
+            logger.info(f"Loaded prompt from: {prompt_file}")
+        except FileNotFoundError:
+            logger.error(f"Prompt file not found: {prompt_file}")
+            raise FileNotFoundError(f"Prompt file not found: {prompt_file}")
+
+        # Replace placeholders
+        prompt = prompt_template.format(
+            chapter_summary=chapter_summary,
+            class_grade=class_grade,
+            subject=subject,
+            chapter_title=chapter_title
+        )
+        return prompt
+
+
+    def get_exercise_extraction_prompt(
+        self, class_grade:int,subject:str,chapter_title:str,chapter_text
+    ):
+        """
+        Get back excercise extraction prompt for students to understand the chapter.
+        """
+        # Normalize inputs
+        subject = subject.lower().strip()
+
+        prompt_file= os.path.join(self.BASE_DIR,"exercise_extraction_prompt.txt") 
+
+        try:
+            with open(prompt_file, "r", encoding="utf-8") as f:
+                prompt_template = f.read()
+            logger.info(f"Loaded prompt from: {prompt_file}")
+        except FileNotFoundError:
+            logger.error(f"Prompt file not found: {prompt_file}")
+            raise FileNotFoundError(f"Prompt file not found: {prompt_file}")
+
+        # Replace placeholders
+        prompt = prompt_template.format(
+            chapter_text=chapter_text,
+            class_grade=class_grade,
+            subject=subject,
+            chapter_title=chapter_title
+        )
+        return prompt
+    
+
+    def get_exercise_answering_prompt(
+        self, class_grade:int,subject:str,chapter_title:str,chapter_text,questions_json
+    ):
+        """
+        Get back excersise answering  prompt for students to understand the chapter.
+        """
+        # Normalize inputs
+        subject = subject.lower().strip()
+
+        prompt_file= os.path.join(self.BASE_DIR,"exercise_answering_prompt.txt") 
+
+        try:
+            with open(prompt_file, "r", encoding="utf-8") as f:
+                prompt_template = f.read()
+            logger.info(f"Loaded prompt from: {prompt_file}")
+        except FileNotFoundError:
+            logger.error(f"Prompt file not found: {prompt_file}")
+            raise FileNotFoundError(f"Prompt file not found: {prompt_file}")
+
+        # Replace placeholders
+        prompt = prompt_template.format(
+            chapter_text=chapter_text,
+            extracted_questions_json=questions_json,
+            class_grade=class_grade,
+            subject=subject,
+            chapter_title=chapter_title
+        )
+        return prompt
+

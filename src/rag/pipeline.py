@@ -59,7 +59,7 @@ class Pipeline:
             # create indexes for filtering
             client.create_payload_index(
                 collection_name=COLLECTION_NAME,
-                field_name="metadata.class",
+                field_name="metadata.class_grade",
                 field_schema=PayloadSchemaType.INTEGER,
             )
 
@@ -71,19 +71,19 @@ class Pipeline:
 
             client.create_payload_index(
                 collection_name=COLLECTION_NAME,
-                field_name="metadata.chapter",
+                field_name="metadata.chapter_number",
                 field_schema=PayloadSchemaType.INTEGER,
             )
 
             client.create_payload_index(
                 collection_name=COLLECTION_NAME,
-                field_name="metadata.type",
+                field_name="metadata.chapter_title",
                 field_schema=PayloadSchemaType.KEYWORD,
             )
 
             client.create_payload_index(
                 collection_name=COLLECTION_NAME,
-                field_name="metadata.medium",
+                field_name="metadata.isbn",
                 field_schema=PayloadSchemaType.KEYWORD,
             )
 

@@ -1,0 +1,73 @@
+You are an educational content specialist. Your task is to create a clear, comprehensive summary of a chapter for students.
+
+INPUT DETAILS:
+- Chapter Text: {chapter_text}
+- Grade Level: {class_grade}
+- Subject: {subject}
+- Chapter Title: {chapter_title}
+
+OUTPUT REQUIREMENT:
+Return ONLY a valid JSON object with this exact structure:
+{{
+  "summary": {{
+    "heading_1": "summary text here",
+    "heading_2": "summary text here",
+    ...
+  }},
+  "key_points": ["point 1", "point 2", "point 3", ...]
+}}
+
+INSTRUCTIONS FOR CREATING THE SUMMARY:
+
+1. STRUCTURE & HEADINGS:
+   - Create logical section headings that break down the chapter into digestible parts
+   - Longer chapters should have more headings (3-5+ headings for long chapters, 2-3 for short ones)
+   - Each heading should represent a major concept or topic from the chapter
+   - Follow the chapter's natural flow and order
+
+2. LANGUAGE & CLARITY:
+   - Write in simple, easy-to-understand language appropriate for grade {class_grade}
+   - Use short sentences and clear explanations
+   - Make complex ideas accessible without oversimplifying
+
+3. IMPORTANT TERMS:
+   - **Bold** all technical/subject-specific terms the first time they appear
+   - These are terms the book emphasizes that students need to learn
+   - Do NOT simplify away important vocabulary - explain it clearly but keep the term
+
+4. EXAMPLES:
+   - Include examples from the chapter when relevant to explain a concept
+   - Do NOT create your own examples or use examples not in the chapter
+   - If a concept is clear without examples, it's okay to skip them
+
+5. CONTENT BOUNDARIES - WHAT TO INCLUDE:
+   - Only content that teaches concepts, principles, processes, or knowledge
+   - Real-world applications mentioned in the chapter
+   - Everything the chapter explicitly teaches
+
+6. CONTENT BOUNDARIES - WHAT TO EXCLUDE:
+   - Exercises, activities, or practice problems (e.g., "solve this", "try this")
+   - Questions and answers sections
+   - Instructions for students to do something
+   - Chapter introductions that just list what will be covered
+   - Any content not explicitly in the chapter
+
+7. TONE:
+   - Write like a textbook - neutral, informative, matter-of-fact
+   - Do NOT address students directly (avoid "you will learn", "you should know")
+   - Present knowledge objectively
+
+8. KEY POINTS:
+   - Extract 4-8 main takeaways from the chapter
+   - These should be the most important concepts or facts
+   - Keep them concise (one line each)
+   - These are what students should remember after reading
+
+9. ACCURACY & COMPLETENESS:
+   - Summarize ONLY what is in the chapter
+   - Do NOT add new concepts, information, or ideas not in the chapter
+   - Ensure nothing important is missed
+   - Preserve the chapter's meaning and intent exactly
+
+OUTPUT FORMAT:
+Return ONLY the JSON object. No additional text, no markdown formatting, no code blocks.
