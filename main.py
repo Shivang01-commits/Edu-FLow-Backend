@@ -1,9 +1,20 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-
+from fastapi.middleware.cors import CORSMiddleware
 from src.db.main import init_db
+
+# TODO: later add karenge
+from src.routes.book_routes import router as book_router
+
+from src.routes.auth_routes import router as auth_router
+from src.routes.sudo_admin_routes import router as sudo_admin_router
+from src.routes.admin_routes import router as admin_router
+from src.routes.teacher_routes import router as teacher_router
+from src.routes.student_routes import router as student_router
+from src.routes.quiz_routes import router as quiz_router
+
+
 from src.routes.book_ingestion_routes import router as book_ingestion_router
-from src.routes.book_ingestion_routes import router as book_router
 import logging
 
 @asynccontextmanager
@@ -14,16 +25,34 @@ async def lifespan(app: FastAPI):
     print("Server shutting down...")
 
 
-app = FastAPI(lifespan=lifespan)
-
-app.include_router(book_ingestion_router)
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(levelname)s: %(message)s"
+app = FastAPI(
+    lifespan=lifespan,
+    title="Padhai App",
+    version="1.0.0",
+    description="Backend API for Padhai — school content management platform",
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-@app.get("/")
+# TODO: later add karenge
+app.include_router(book_router)
+app.include_router(auth_router)
+app.include_router(sudo_admin_router)
+app.include_router(admin_router)
+app.include_router(teacher_router)
+app.include_router(student_router)
+app.include_router(quiz_router)
+app.include_router(book_ingestion_router)
+
+# logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+
+
+@app.get("/", tags=["Health"])
 def root():
     return {"message": "Backend running successfully"}

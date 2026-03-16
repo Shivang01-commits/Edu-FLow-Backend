@@ -1,43 +1,74 @@
-from fastapi import APIRouter, Depends, HTTPException
+"""
+NOTE: Registration is NOT here.
+        Teachers and students are registered by admin via /admin/teachers/register
+        and /admin/students/register. There is no self-registration.
+"""
+
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-
+from src.models.auth_schema import LoginRequest, ChangePasswordRequest
 from src.db.main import get_db
-from src.models.user_schema import UserCreate, UserLogin
-from src.services.auth_service import AuthService
-from src.core.jwt_handler import create_access_token
+from src.db.models import User
+from src.services.db_services.auth_service import AuthService
+from src.utils.jwt_handler import get_current_user, get_refresh_token_user
 
-auth_router = APIRouter(prefix="/auth", tags=["auth"])
-service = AuthService()
-
-
-@auth_router.post("/signup", status_code=201)
-def create_user(user: UserCreate, db: Session = Depends(get_db)):
-
-    # check if user already exists
-    existing_user = service.get_user_by_email(db, user.email)
-
-    if existing_user:
-        raise HTTPException(
-            status_code=409, detail="User with this email already exists"
-        )
-
-    new_user = service.create_user(db, user.email, user.password)
-
-    return {
-        "message": "User created successfully",
-        "user_id": new_user.id,
-        "email": new_user.email,
-    }
+router = APIRouter(prefix="/auth", tags=["Auth"])
+auth_service = AuthService()
 
 
-@auth_router.post("/login")
-def login(user: UserLogin, db: Session = Depends(get_db)):
+@router.post(
+    "/login",
+    summary="Login with email and password",
+    description=(
+        "Returns access token (30 min), refresh token (7 days), and is_password_changed flag. "
+        "Frontend checks is_password_changed — if False, show 'please change your password' banner."
+    ),
+)
+def login(
+    data: LoginRequest,
+    db: Session = Depends(get_db),
+):
+    return auth_service.login(db, data.email, data.password)
 
-    db_user = service.authenticate_user(db, user.email, user.password)
 
-    if not db_user:
-        raise HTTPException(status_code=401, detail="Invalid email or password")
+@router.post(
+    "/refresh",
+    summary="Get a new access token using refresh token",
+    description=(
+        "Send the refresh token in Authorization header as Bearer. "
+        "Returns a fresh access token. Refresh token itself is NOT rotated."
+    ),
+)
+def refresh(
+    current_user: User = Depends(get_refresh_token_user),
+):
+    return auth_service.refresh_access_token(current_user)
 
-    token = create_access_token({"user_id": str(db_user.id)})
 
-    return {"access_token": token, "token_type": "bearer"}
+@router.get(
+    "/me",
+    summary="Get current logged-in user profile",
+    description="Returns user details from the access token. Frontend calls this on page load.",
+)
+def get_me(
+    current_user: User = Depends(get_current_user),
+):
+    return auth_service.get_profile(current_user)
+
+
+@router.post(
+    "/change-password",
+    summary="Change own password",
+    description=(
+        "Any role can call this. "
+        "Sets is_password_changed = True after success — removes the banner on frontend."
+    ),
+)
+def change_password(
+    data: ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return auth_service.change_password(
+        db, current_user, data.old_password, data.new_password
+    )

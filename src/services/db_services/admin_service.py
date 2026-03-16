@@ -1,0 +1,412 @@
+"""
+admin_service.py
+
+  - Register teacher (random password + welcome email)
+  - Register student (random password + welcome email + enroll in class)
+  - Create class
+  - Assign teacher to class
+  - List teachers, students, classes for their school
+  - Deactivate users
+  - Resend password
+
+"""
+
+import secrets
+import string
+import uuid
+from datetime import date
+from typing import Optional
+
+from fastapi import HTTPException, status
+from sqlalchemy.orm import Session
+
+from src.db.models import User, UserRole, Class, Enrollment, ClassTeacher, School
+from src.services.db_services.auth_service import hash_password
+from src.services.email_service import (
+    send_student_welcome_email,
+    send_teacher_welcome_email,
+)
+
+
+# ===========================================================================
+# Password generator — shared, used by admin_service + sudo_admin_service
+# ===========================================================================
+
+
+def generate_random_password(length: int = 12) -> str:
+    """
+    Generates a secure random password.
+    Guarantees at least one uppercase, lowercase, digit, special char.
+    Example: "Kx7#mP2@nQ9!"
+    """
+    alphabet = (
+        string.ascii_uppercase + string.ascii_lowercase + string.digits + "!@#$%^&*"
+    )
+    password = [
+        secrets.choice(string.ascii_uppercase),
+        secrets.choice(string.ascii_lowercase),
+        secrets.choice(string.digits),
+        secrets.choice("!@#$%^&*"),
+    ]
+    password += [secrets.choice(alphabet) for _ in range(length - 4)]
+    secrets.SystemRandom().shuffle(password)
+    return "".join(password)
+
+
+# ===========================================================================
+# AdminService
+# ===========================================================================
+
+
+class AdminService:
+    # -----------------------------------------------------------------------
+    # REGISTER TEACHER
+    # -----------------------------------------------------------------------
+    def register_teacher(
+        self,
+        db: Session,
+        admin: User,
+        email: str,
+        first_name: str,
+        last_name: Optional[str],
+        date_of_birth: date,
+    ) -> dict:
+        self._check_email_unique(db, email)
+
+        school = self._get_school_or_404(db, admin.school_id)
+        raw_password = generate_random_password()
+
+        teacher = User(
+            school_id=admin.school_id,
+            email=email.lower().strip(),
+            password_hash=hash_password(raw_password),
+            first_name=first_name.strip(),
+            last_name=last_name.strip() if last_name else None,
+            date_of_birth=date_of_birth,
+            role=UserRole.teacher,
+            is_active=True,
+            is_password_changed=False,
+        )
+        db.add(teacher)
+        db.commit()
+        db.refresh(teacher)
+
+        send_teacher_welcome_email(
+            to_email=email,
+            first_name=first_name,
+            school_name=school.school_name,
+            password=raw_password,
+        )
+
+        return {
+            "message": "Teacher registered. Login details sent to their email.",
+            "teacher_id": str(teacher.user_id),
+            "email": teacher.email,
+        }
+
+    def register_student(
+        self,
+        db: Session,
+        admin: User,
+        email: str,
+        first_name: str,
+        last_name: Optional[str],
+        date_of_birth: date,
+        class_id: uuid.UUID,
+    ) -> dict:
+        self._check_email_unique(db, email)
+
+        class_ = self._get_class_or_404(db, class_id)
+        if class_.school_id != admin.school_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This class does not belong to your school",
+            )
+
+        school = self._get_school_or_404(db, admin.school_id)
+        raw_password = generate_random_password()
+
+        student = User(
+            school_id=admin.school_id,
+            email=email.lower().strip(),
+            password_hash=hash_password(raw_password),
+            first_name=first_name.strip(),
+            last_name=last_name.strip() if last_name else None,
+            date_of_birth=date_of_birth,
+            role=UserRole.student,
+            is_active=True,
+            is_password_changed=False,
+        )
+        db.add(student)
+        db.flush()
+
+        enrollment = Enrollment(
+            school_id=admin.school_id,
+            class_id=class_id,
+            student_id=student.user_id,
+            current_class=f"{class_.class_name} {class_.section or ''}".strip(),
+            is_active=True,
+        )
+        db.add(enrollment)
+        db.commit()
+        db.refresh(student)
+
+        send_student_welcome_email(
+            to_email=email,
+            first_name=first_name,
+            school_name=school.school_name,
+            password=raw_password,
+            class_name=f"{class_.class_name} {class_.section or ''}".strip(),
+        )
+
+        return {
+            "message": "Student registered and enrolled. Login details sent to their email.",
+            "student_id": str(student.user_id),
+            "email": student.email,
+            "class": f"{class_.class_name} {class_.section or ''}".strip(),
+        }
+
+    def create_class(
+        self,
+        db: Session,
+        admin: User,
+        class_name: str,
+        grade_level: int,
+        section: Optional[str] = None,
+    ) -> Class:
+        existing = (
+            db.query(Class)
+            .filter(
+                Class.school_id == admin.school_id,
+                Class.class_name == class_name.strip(),
+                Class.section == (section.strip() if section else None),
+            )
+            .first()
+        )
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Class '{class_name} {section or ''}' already exists in your school",
+            )
+
+        new_class = Class(
+            school_id=admin.school_id,
+            class_name=class_name.strip(),
+            grade_level=grade_level,
+            section=section.strip() if section else None,
+        )
+        db.add(new_class)
+        db.commit()
+        db.refresh(new_class)
+        return new_class
+
+    # -----------------------------------------------------------------------
+    # ASSIGN TEACHER TO CLASS
+    # -----------------------------------------------------------------------
+    def assign_teacher_to_class(
+        self,
+        db: Session,
+        admin: User,
+        class_id: uuid.UUID,
+        teacher_id: uuid.UUID,
+        subject: Optional[str] = None,
+        is_classroom_teacher: bool = False,
+    ) -> ClassTeacher:
+        teacher = self._get_user_or_404(db, teacher_id)
+        if teacher.role != UserRole.teacher:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="User is not a teacher"
+            )
+        if teacher.school_id != admin.school_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Teacher does not belong to your school",
+            )
+
+        class_ = self._get_class_or_404(db, class_id)
+        if class_.school_id != admin.school_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Class does not belong to your school",
+            )
+
+        existing = (
+            db.query(ClassTeacher)
+            .filter(
+                ClassTeacher.class_id == class_id,
+                ClassTeacher.teacher_id == teacher_id,
+                ClassTeacher.subject == subject,
+            )
+            .first()
+        )
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Teacher is already assigned to this class for this subject",
+            )
+
+        assignment = ClassTeacher(
+            school_id=admin.school_id,
+            class_id=class_id,
+            teacher_id=teacher_id,
+            subject=subject,
+            is_classroom_teacher=is_classroom_teacher,
+        )
+        db.add(assignment)
+        db.commit()
+        db.refresh(assignment)
+        return assignment
+
+    # -----------------------------------------------------------------------
+    # LIST operations
+    # -----------------------------------------------------------------------
+    def list_teachers(self, db: Session, admin: User) -> list[User]:
+        return (
+            db.query(User)
+            .filter(
+                User.school_id == admin.school_id,
+                User.role == UserRole.teacher,
+                User.is_active == True,
+            )
+            .order_by(User.first_name)
+            .all()
+        )
+
+    def list_students(self, db: Session, admin: User) -> list[User]:
+        return (
+            db.query(User)
+            .filter(
+                User.school_id == admin.school_id,
+                User.role == UserRole.student,
+                User.is_active == True,
+            )
+            .order_by(User.first_name)
+            .all()
+        )
+
+    def list_classes(self, db: Session, admin: User) -> list[Class]:
+        return (
+            db.query(Class)
+            .filter(Class.school_id == admin.school_id)
+            .order_by(Class.grade_level, Class.section)
+            .all()
+        )
+
+    def list_students_in_class(
+        self, db: Session, admin: User, class_id: uuid.UUID
+    ) -> list[dict]:
+        class_ = self._get_class_or_404(db, class_id)
+        if class_.school_id != admin.school_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Class does not belong to your school",
+            )
+
+        enrollments = (
+            db.query(Enrollment)
+            .filter(
+                Enrollment.class_id == class_id,
+                Enrollment.is_active == True,
+            )
+            .all()
+        )
+
+        result = []
+        for e in enrollments:
+            student = db.query(User).filter(User.user_id == e.student_id).first()
+            if student:
+                result.append(
+                    {
+                        "student_id": str(student.user_id),
+                        "first_name": student.first_name,
+                        "last_name": student.last_name,
+                        "email": student.email,
+                        "enrollment_date": e.enrollment_date,
+                        "is_active": e.is_active,
+                    }
+                )
+        return result
+
+    # -----------------------------------------------------------------------
+    # DEACTIVATE USER
+    # -----------------------------------------------------------------------
+    def deactivate_user(self, db: Session, admin: User, user_id: uuid.UUID) -> dict:
+        user = self._get_user_or_404(db, user_id)
+        if user.school_id != admin.school_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User does not belong to your school",
+            )
+        user.is_active = False
+        db.commit()
+        return {"message": f"User {user.email} has been deactivated"}
+
+    # -----------------------------------------------------------------------
+    # RESEND PASSWORD
+    # -----------------------------------------------------------------------
+    def resend_password(self, db: Session, admin: User, user_id: uuid.UUID) -> dict:
+        user = self._get_user_or_404(db, user_id)
+        if user.school_id != admin.school_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User does not belong to your school",
+            )
+
+        school = self._get_school_or_404(db, admin.school_id)
+        raw_password = generate_random_password()
+
+        user.password_hash = hash_password(raw_password)
+        user.is_password_changed = False
+        db.commit()
+
+        if user.role == UserRole.teacher:
+            send_teacher_welcome_email(
+                to_email=user.email,
+                first_name=user.first_name,
+                school_name=school.school_name,
+                password=raw_password,
+            )
+        else:
+            send_student_welcome_email(
+                to_email=user.email,
+                first_name=user.first_name,
+                school_name=school.school_name,
+                password=raw_password,
+                class_name="your class",
+            )
+
+        return {"message": f"New password generated and sent to {user.email}"}
+
+    # -----------------------------------------------------------------------
+    # Internal helpers
+    # -----------------------------------------------------------------------
+    def _check_email_unique(self, db: Session, email: str) -> None:
+        if db.query(User).filter(User.email == email.lower().strip()).first():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"A user with email {email} already exists",
+            )
+
+    def _get_school_or_404(self, db: Session, school_id) -> School:
+        school = db.query(School).filter(School.school_id == school_id).first()
+        if not school:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="School not found"
+            )
+        return school
+
+    def _get_class_or_404(self, db: Session, class_id: uuid.UUID) -> Class:
+        class_ = db.query(Class).filter(Class.class_id == class_id).first()
+        if not class_:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Class not found"
+            )
+        return class_
+
+    def _get_user_or_404(self, db: Session, user_id: uuid.UUID) -> User:
+        user = db.query(User).filter(User.user_id == user_id).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            )
+        return user
