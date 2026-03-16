@@ -37,14 +37,97 @@ Return ONLY a valid JSON object with this exact structure:
   ]
 }}
 
-INSTRUCTIONS FOR CREATING THE QUIZ:
+SUBJECT-SPECIFIC QUESTION GENERATION:
+
+IF SUBJECT IS LITERATURE/HINDI/ENGLISH (Stories, Poems, Autobiographies, Narratives):
+====================================================================================
+
+Your goal is to test COMPREHENSION, CHARACTER UNDERSTANDING, THEMES, and INFERENCE.
+
+QUESTION DISTRIBUTION (aim for this across 10 questions):
+- 3 questions about CHARACTER & MOTIVATION - Why did characters act? What are their traits? How do they relate?
+- 2 questions about THEMES & DEEPER MEANING - What does the text teach? What is the central message? What values matter?
+- 2 questions about INFERENCE & INTERPRETATION - What can we infer from events? What is implied but not stated?
+- 2 questions about EMOTIONAL JOURNEY & CONFLICT - How did character change? What was the conflict? What is the resolution?
+- 1 question about KEY DETAILS - Important events, character names, specific references from text
+
+EXAMPLE LITERATURE QUESTIONS:
+- "Based on the chapter, what value did the author's mother emphasize most through her actions?"
+- "Which statement best describes how the protagonist changed by the end of the story?"
+- "What can we infer about the character's beliefs from their decision to..."
+- "How would the story be different if [character] had not..."
+- "What does the author suggest about the importance of [theme]?"
+
+---
+
+IF SUBJECT IS SCIENCE/MATHEMATICS/PROCEDURAL (Concepts, Processes, Systems):
+=============================================================================
+
+Your goal is to test CONCEPT UNDERSTANDING, PROCESS KNOWLEDGE, and PROBLEM APPLICATION.
+
+QUESTION DISTRIBUTION (aim for this across 10 questions):
+- 2 questions on BASIC RECALL - What is X? Define Y? (tests factual knowledge)
+- 3 questions on CONCEPT UNDERSTANDING - How does X work? Why is X important? What is the relationship between X and Y? (tests comprehension)
+- 2 questions on PROCESS/MECHANISM - Explain the steps of X? What happens when X occurs? (tests procedural knowledge)
+- 2 questions on APPLICATION & ANALYSIS - Apply concept X to scenario Y? Why would X lead to Y? (tests application and problem-solving)
+- 1 question on COMPARISON/CONTRAST - How is X different from Y? What is similar between X and Y? (tests analytical thinking)
+
+EXAMPLE SCIENCE QUESTIONS:
+- "Which of the following is a primary function of [organ/system] in the body?"
+- "Explain why [process] occurs in living organisms?"
+- "If [scenario], what would happen to [outcome]?"
+- "What is the relationship between [concept A] and [concept B]?"
+- "Which statement correctly describes how [process/structure] works?"
+
+If {subject} is MATHEMATICS:
+=====================================================================================
+
+Your goal is to test CONCEPT UNDERSTANDING, PROCEDURAL KNOWLEDGE, and BASIC APPLICATION of mathematical ideas.
+
+QUESTION DISTRIBUTION (aim for this across 10 questions):
+
+- 3 questions on CONCEPT UNDERSTANDING  
+  (Identify what a concept means, recognize relationships such as ratios, proportions, formulas, definitions.)
+
+- 3 questions on PROCEDURAL REASONING  
+  (Determine steps involved in solving a problem, identifying correct method or rule.)
+
+- 2 questions on APPLICATION  
+  (Apply the concept to simple real-life or numerical scenarios.)
+
+- 1 question on IDENTIFICATION  
+  (Recognizing correct mathematical statement, ratio, or expression.)
+
+- 1 question on COMPARISON OR LOGICAL THINKING  
+  (Compare ratios, determine proportional relationships, or identify correct reasoning.)
+
+IMPORTANT GUIDELINES FOR MATHEMATICS QUESTIONS:
+
+- Questions may include **numbers, ratios, or simple expressions** when needed.
+- Focus on **understanding of method**, not heavy calculations.
+- Avoid very long calculations or multi-step numerical solving.
+- Ensure numbers are **small and appropriate for grade {class_grade}.**
+- When using numbers, ensure only **one option gives the correct result.**
+- Mathematical expressions should be **clear and readable in plain text.**
+
+EXAMPLE MATHEMATICS QUESTIONS:
+
+- "Which of the following ratios is equivalent to 2:3?"
+- "If two quantities increase in the same ratio, what type of relationship is this?"
+- "Which method can be used to divide a number in a given ratio?"
+- "Which situation represents a proportional relationship?"
+- "What happens to one quantity if the other increases in an inverse proportion?"
+---
+
+COMMON INSTRUCTIONS (ALL SUBJECTS):
+===================================
 
 1. QUESTION GENERATION:
    - Create exactly 10 multiple-choice questions
    - Base ALL questions ONLY on the provided chapter summary
    - Do NOT add questions about topics not in the summary
    - Questions should cover different concepts from the summary
-   - Mix easy, medium, and hard questions naturally based on summary content
+   - Vary question types to test different levels of understanding (as per subject guidelines above)
    - Do NOT force difficulty levels if not present in summary
 
 2. QUESTION QUALITY:
@@ -53,6 +136,8 @@ INSTRUCTIONS FOR CREATING THE QUIZ:
    - Avoid trick questions or unnecessarily confusing wording
    - Make questions appropriate for grade {class_grade}
    - Use simple, clear language that students can easily understand
+   - For literature: focus on comprehension and interpretation, not just factual recall
+   - For science/math: focus on concept mastery and application, not just definitions
 
 3. OPTIONS/CHOICES:
    - Provide exactly 4 options (A, B, C, D) for each question
@@ -73,6 +158,8 @@ INSTRUCTIONS FOR CREATING THE QUIZ:
    - Explanation should clearly state WHY the correct answer is right
    - Keep explanations concise and educational
    - Explanations should help students learn if they got it wrong
+   - For literature: explain the significance or interpretation based on the text
+   - For science: explain the underlying concept or mechanism
 
 6. CONTENT BOUNDARIES:
    - ONLY create questions from concepts explicitly in the chapter summary
@@ -85,12 +172,15 @@ INSTRUCTIONS FOR CREATING THE QUIZ:
    - Distribute correct answers across all four options (A, B, C, D)
    - Do NOT cluster correct answers in one position
    - Roughly equal distribution across the 10 questions
+   - Avoid patterns (e.g., not A, B, C, D, A, B, C, D)
 
 8. LANGUAGE & TONE:
    - Write questions in simple, straightforward language
    - Avoid complex vocabulary unless it's a key term from the chapter
    - Make questions engaging but educational
    - Appropriate for students of grade {class_grade}
+   - For literature: use natural, conversational tone that invites interpretation
+   - For science: use precise language when needed, but keep explanations clear
 
 9. ACCURACY & COMPLETENESS:
     - All questions must be based ONLY on the chapter summary

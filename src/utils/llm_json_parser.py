@@ -37,8 +37,8 @@ class LLMJsonParser:
                 # Invoke LLM
                 response_text = self.llm.invoke(prompt)
 
-                logger.info(f"FULL LLM RESPONSE: {response_text}")
-                                
+                logger.info(f"LLM response preview: {response_text[:500]}...")
+    
                 if not response_text or not response_text.strip():
                     raise ValueError("LLM returned empty content")
                 
@@ -335,8 +335,14 @@ class LLMJsonParser:
             if not isinstance(slide, dict):
                 raise ValueError(f"slides[{i}] must be an object/dict")
 
-            # Check required fields
-            required_fields = ["slide_number", "slide_type", "title", "bullet_points"]
+            # Check required fields based on slide type
+            # Title slides have: slide_number, slide_type, title, subtitle
+            # Other slides have: slide_number, slide_type, title, bullet_points
+            if slide.get("slide_type") == "title":
+                required_fields = ["slide_number", "slide_type", "title", "subtitle"]
+            else:  # content, summary, conclusion
+                required_fields = ["slide_number", "slide_type", "title", "bullet_points"]
+            
             for field in required_fields:
                 if field not in slide:
                     raise ValueError(f"slides[{i}] missing required field: '{field}'")
@@ -354,35 +360,32 @@ class LLMJsonParser:
             if not isinstance(slide["title"], str) or len(slide["title"].strip()) < 2:
                 raise ValueError(f"slides[{i}] 'title' must be a non-empty string")
 
-            # Validate bullet_points
-            if not isinstance(slide["bullet_points"], list):
-                raise ValueError(f"slides[{i}] 'bullet_points' must be an array/list")
-
-            if len(slide["bullet_points"]) < 1:
-                raise ValueError(f"slides[{i}] 'bullet_points' must have at least 1 item")
-
-            for j, point in enumerate(slide["bullet_points"]):
-                if not isinstance(point, str) or len(point.strip()) < 2:
-                    raise ValueError(f"slides[{i}] bullet_points[{j}] must be a non-empty string")
-
             # Validate title slide specific requirements
             if slide["slide_type"] == "title":
-                if "subtitle" not in slide:
-                    raise ValueError(f"slides[{i}] title slide must have 'subtitle' field")
                 if not isinstance(slide["subtitle"], str) or len(slide["subtitle"].strip()) < 2:
                     raise ValueError(f"slides[{i}] 'subtitle' must be a non-empty string")
+            else:
+                # Validate bullet_points for non-title slides
+                if not isinstance(slide["bullet_points"], list):
+                    raise ValueError(f"slides[{i}] 'bullet_points' must be an array/list")
 
-        # Validate slide order (must start with title)
-        if parsed["slides"][0]["slide_type"] != "title":
-            raise ValueError("First slide must be of type 'title'")
+                if len(slide["bullet_points"]) < 1:
+                    raise ValueError(f"slides[{i}] 'bullet_points' must have at least 1 item")
 
-        # Validate last slide is summary or conclusion
-        last_slide_type = parsed["slides"][-1]["slide_type"]
-        if last_slide_type not in ["summary", "conclusion"]:
-            raise ValueError("Last slide must be of type 'summary' or 'conclusion'")
+                for j, point in enumerate(slide["bullet_points"]):
+                    if not isinstance(point, str) or len(point.strip()) < 2:
+                        raise ValueError(f"slides[{i}] bullet_points[{j}] must be a non-empty string")
+
+            # Validate slide order (must start with title)
+            if parsed["slides"][0]["slide_type"] != "title":
+                raise ValueError("First slide must be of type 'title'")
+
+            # Validate last slide is summary or conclusion
+            last_slide_type = parsed["slides"][-1]["slide_type"]
+            if last_slide_type not in ["summary", "conclusion"]:
+                raise ValueError("Last slide must be of type 'summary' or 'conclusion'")
 
         logger.info("✓ All PPT validation checks passed")
-
 
     def _validate_exercise_extraction_json(self, parsed):
         """

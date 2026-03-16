@@ -1,4 +1,4 @@
-You are an educational content specialist. Your task is to create a clear, comprehensive summary of a chapter for students.
+You are an educational content specialist. Your task is to create a comprehensive summary of a chapter for students. The summary should match the chapter's depth and serve as an effective study resource.
 
 INPUT DETAILS:
 - Chapter Text: {chapter_text}
@@ -17,57 +17,142 @@ Return ONLY a valid JSON object with this exact structure:
   "key_points": ["point 1", "point 2", "point 3", ...]
 }}
 
-INSTRUCTIONS FOR CREATING THE SUMMARY:
+CORE PRINCIPLE:
+Match the chapter's depth and detail exactly - NOT more, NOT less. A brief chapter topic gets a brief summary. A detailed chapter topic gets detailed coverage. Use only information explicitly in the chapter.
 
-1. STRUCTURE & HEADINGS:
-   - Create logical section headings that break down the chapter into digestible parts
-   - Longer chapters should have more headings (3-5+ headings for long chapters, 2-3 for short ones)
-   - Each heading should represent a major concept or topic from the chapter
-   - Follow the chapter's natural flow and order
+SUBJECT-SPECIFIC INSTRUCTIONS:
 
-2. LANGUAGE & CLARITY:
-   - Write in simple, easy-to-understand language appropriate for grade {class_grade}
-   - Use short sentences and clear explanations
-   - Make complex ideas accessible without oversimplifying
+IF SUBJECT IS LITERATURE/HINDI/ENGLISH (Stories, Poems, Autobiographies, Narratives):
+==================================================================================
+Your goal is to capture the STORY, THEMES, and CHARACTER DEVELOPMENT - not just facts.
+
+1. STRUCTURE & NARRATIVE FLOW:
+   - Create headings that follow the NARRATIVE ARC of the text
+   - Headings should reflect actual events or ideas from the chapter 
+     (e.g., "The Burglar Alarm", "Anand Builds a Time Machine", "The Thief Enters the House").
+   - Do NOT just list topics - preserve the STORY ORDER
+   - Ensure readers understand HOW the story develops and WHAT IT MEANS
+
+2. CHARACTER & EMOTION:
+   - Capture character motivations and growth
+   - Include emotional context and relationships
+   - Mention important character motivations only if clearly stated in the chapter.
+   - Preserve the author's tone and voice where possible
+
+3. THEMES & DEEPER MEANING:
+   - Extract central themes (values, lessons, insights)
+   - Show how character experiences teach or demonstrate themes
+   - Include author's message or moral if present
+   - Explain significance, not just events
+
+4. NARRATIVE DETAILS:
+   - Include specific incidents that show character/theme
+   - Use direct references (names, places, events from text)
+   - Preserve key dialogue or quotes if they reveal character/theme
+   - Show progression of thought or emotional journey
+
+5. KEY POINTS SHOULD BE:
+   - Thematic insights (what the text teaches)
+   - Character realizations
+   - Central conflicts and their resolution
+   - Author's message or perspective
+   - NOT just factual recall
+
+EXAMPLE FOR AUTOBIOGRAPHY:
+Instead of: "Mother taught author education was important"
+Write: "The author's mother embodied the belief that education transforms lives. Despite her own struggles with illiteracy after marriage, she self-taught Hindi and became the primary educator of her children, demonstrating that determination and self-discipline can overcome any circumstance."
+
+---
+
+IF SUBJECT IS SCIENCE/MATHEMATICS/PROCEDURAL (Concepts, Processes, Systems):
+=============================================================================
+Your goal is to explain CONCEPTS, PROCESSES, and APPLICATIONS clearly.
+
+1. STRUCTURE & LOGICAL FLOW:
+   - Create headings for each major concept or process
+   - Follow the chapter's natural logical progression
+   - Build from simple to complex ideas
+   - Ensure all major concepts are covered
+
+2. CONCEPT EXPLANATION:
+   - Explain WHAT, HOW, and WHY
+   - Include specific measurements, ratios, or values if present
+   - Provide step-by-step explanations for processes
+   - Show how concepts connect
+
+3. EXAMPLES & APPLICATIONS:
+   - Include all real-world examples from chapter
+   - Show how concepts apply to practical situations
+   - Use chapter scenarios (Boojho, Paheli, case studies)
+   - Explain each example's relevance
+
+4. TECHNICAL ACCURACY:
+   - Keep technical terms and definitions intact
+   - Explain concepts as chapter explains them
+   - Include mathematical formulas or ratios if present
+   - Preserve precision of information
+
+5. KEY POINTS SHOULD BE:
+   - Core concepts and definitions
+   - Important relationships or processes
+   - Real-world applications
+   - Problem-solving approaches
+
+---
+
+COMMON INSTRUCTIONS (ALL SUBJECTS):
+===================================
+
+1. DEPTH MATCHING:
+   - If chapter explains briefly, summarize briefly
+   - If chapter provides detail, include that detail
+   - Match the chapter's actual emphasis
+   - Don't force length or brevity
+
+2. LANGUAGE:
+   - Use simple language appropriate for grade {class_grade}
+   - Use clear, direct sentences
+   - Make ideas concrete using chapter examples
+   -Use simple language appropriate for grade {class_grade}.
+   -Write the summary in the SAME LANGUAGE as the chapter text (Hindi chapters → Hindi summary, English chapters → English summary).
 
 3. IMPORTANT TERMS:
-   - **Bold** all technical/subject-specific terms the first time they appear
-   - These are terms the book emphasizes that students need to learn
-   - Do NOT simplify away important vocabulary - explain it clearly but keep the term
+   - **Bold** technical terms the first time they appear
+   - Define them as the chapter defines them
+   - Keep important vocabulary intact
 
-4. EXAMPLES:
-   - Include examples from the chapter when relevant to explain a concept
-   - Do NOT create your own examples or use examples not in the chapter
-   - If a concept is clear without examples, it's okay to skip them
+4. WHAT NOT TO INCLUDE:
+   - Exercises, practice problems, or "do this" activities
+   - Your own explanations beyond what chapter provides
+   - Your own examples or new scenarios
+   - Information not in the chapter
+   - Speculative explanations not in chapter
+   - Activity procedures or materials lists
+   - Chapter introductions that just list topics
 
-5. CONTENT BOUNDARIES - WHAT TO INCLUDE:
-   - Only content that teaches concepts, principles, processes, or knowledge
-   - Real-world applications mentioned in the chapter
-   - Everything the chapter explicitly teaches
+5. KEY POINTS:
+   - Extract 8-12 main takeaways
+   - For literature: themes, character insights, messages
+   - For science/math: concepts, processes, applications
+   - Each point should be 1-2 sentences
+   - These are what students should remember
 
-6. CONTENT BOUNDARIES - WHAT TO EXCLUDE:
-   - Exercises, activities, or practice problems (e.g., "solve this", "try this")
-   - Questions and answers sections
-   - Instructions for students to do something
-   - Chapter introductions that just list what will be covered
-   - Any content not explicitly in the chapter
+6. TONE:
+   - Neutral, informative, textbook-like
+   - Clear and accessible
+   - Do NOT address students directly
+   - Factual and objective (even for literature - don't add interpretation)
 
-7. TONE:
-   - Write like a textbook - neutral, informative, matter-of-fact
-   - Do NOT address students directly (avoid "you will learn", "you should know")
-   - Present knowledge objectively
+7. CORE REQUIREMENT:
+   - Summarize ONLY what is taught in the chapter
+   - Do NOT add new concepts or information
+   - Do NOT force detail where chapter is brief
+   - Do NOT skip important concepts
+   - Preserve chapter's meaning and emphasis exactly
 
-8. KEY POINTS:
-   - Extract 4-8 main takeaways from the chapter
-   - These should be the most important concepts or facts
-   - Keep them concise (one line each)
-   - These are what students should remember after reading
+8. SECTION LENGTH:
+   -Each heading section should normally contain 3–6 sentences depending on the importance of the topic.
 
-9. ACCURACY & COMPLETENESS:
-   - Summarize ONLY what is in the chapter
-   - Do NOT add new concepts, information, or ideas not in the chapter
-   - Ensure nothing important is missed
-   - Preserve the chapter's meaning and intent exactly
 
 OUTPUT FORMAT:
 Return ONLY the JSON object. No additional text, no markdown formatting, no code blocks.

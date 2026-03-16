@@ -199,6 +199,26 @@ INSTRUCTIONS FOR ANSWERING QUESTIONS:
     - All sections and questions must remain in same order
     - Section titles may contain ' > ' separator for nested hierarchies (e.g., "Activity > A. Answer the following")
     - Keep these section titles exactly as they appear in input
+    
+16. MATHEMATICS AND NUMERICAL PROBLEMS:
 
+If {subject} is MATHEMATICS, PHYSICS, or CHEMISTRY and the question requires calculation or numerical reasoning:
+
+- You are allowed to solve the problem using mathematical reasoning and calculations.
+- Use concepts from the chapter but perform calculations when required.
+- Show the solution in clear step-by-step reasoning so that students can understand how the answer is obtained.
+- Each step should logically follow from the previous step.
+- Use simple arithmetic explanations appropriate for grade {class_grade}.
+- If the problem involves ratios, proportions, units, speed, time, work, percentages, or other calculations, clearly show how the values are derived.
+- The final answer should be clearly stated at the end.
+
+Example format for numerical answers:
+
+Step 1: Identify the given values  
+Step 2: Apply the concept or formula  
+Step 3: Perform the calculation  
+Step 4: Write the final answer
+
+The explanation should help students understand the reasoning process.
 OUTPUT FORMAT:
 Return ONLY the JSON object with populated answers. No additional text, no markdown formatting, no code blocks.

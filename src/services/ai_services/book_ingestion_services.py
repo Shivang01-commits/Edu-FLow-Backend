@@ -3,7 +3,7 @@ from src.utils.llm_json_parser import LLMJsonParser
 from src.prompts.prompt_returner import PromptReturner
 from src.utils.pdf_extractor import PDFExtractor
 from src.rag.pipeline import Pipeline
-
+import json
 
 class BookIngestionService:
 
@@ -58,7 +58,8 @@ class BookIngestionService:
 
         return {
             "heading": f"Summary of Chapter {metadata['chapter_number']}: {metadata['chapter_title']}",
-            "summary": result
+            "summary": result['summary'],
+            "key_points":result['key_points']
         }
 
     def extract_questions_answers(self, chapter_text, metadata):
@@ -71,7 +72,9 @@ class BookIngestionService:
         prompt = self.prompts.get_exercise_extraction_prompt(class_grade,subject,chapter_title,chapter_text
         )
         extracted_questions_json= self.parser.invoke_llm_with_retry(prompt=prompt,validation_type="exercise_extraction")
-
+        
+        #For Testing Remove later:
+        return extracted_questions_json
         result=self.generate_answers(chapter_text=chapter_text,questions=extracted_questions_json,metadata=metadata)
 
         return {
@@ -79,14 +82,14 @@ class BookIngestionService:
             "qa_bank": result
         }        
 
-    def generate_answers(self, chapter_text, questions, metadata):
-
+    def generate_answers(self, chapter_text, questions:dict, metadata):
+   
         class_grade=metadata['class_grade']
         subject=metadata['subject']
         chapter_title=metadata['chapter_title']
         isbn=metadata['isbn']
-
-        prompt = self.prompts.get_exercise_answering_prompt(class_grade=class_grade,subject=subject,chapter_title=chapter_title,questions_json=questions,chapter_text=chapter_text
+        questions_json = json.dumps(questions, ensure_ascii=False)
+        prompt = self.prompts.get_exercise_answering_prompt(class_grade=class_grade,subject=subject,chapter_title=chapter_title,questions_json=questions_json,chapter_text=chapter_text
         )
 
         return self.parser.invoke_llm_with_retry(prompt=prompt,validation_type="exercise_answering")

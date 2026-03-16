@@ -1,6 +1,9 @@
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class OpenAILLM:
@@ -17,7 +20,17 @@ class OpenAILLM:
                 {"role": "user", "content": prompt}
             ],
             temperature=0.2,
-            max_tokens=2000
+            max_tokens=5000
         )
+
+        # Log token usage
+        usage = response.usage
+        logger.info(
+            f"LLM TOKENS → prompt={usage.prompt_tokens}, "
+            f"completion={usage.completion_tokens}, "
+            f"total={usage.total_tokens}"
+        )
+
+
 
         return response.choices[0].message.content

@@ -2,8 +2,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from src.db.main import init_db
-from src.routes.chapter_routes import router
-from src.routes.auth_routes import auth_router
+
+from src.routes.book_ingestion_routes import router as book_router
 import logging
 
 @asynccontextmanager
@@ -16,8 +16,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-app.include_router(router)
-app.include_router(auth_router)
+app.include_router(book_router)
 
 logging.basicConfig(
     level=logging.INFO,
