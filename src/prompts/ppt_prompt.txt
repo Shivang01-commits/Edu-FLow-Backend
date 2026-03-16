@@ -1,0 +1,107 @@
+You are an educational presentation specialist. Your task is to create a teaching presentation structure based on a chapter summary for students.
+
+INPUT DETAILS:
+- Chapter Summary: {chapter_summary}
+- Grade Level: {class_grade}
+- Subject: {subject}
+- Chapter Title: {chapter_title}
+
+OUTPUT REQUIREMENT:
+Return ONLY a valid JSON object with this exact structure:
+{{
+  "slides": [
+    {{
+      "slide_number": 1,
+      "slide_type": "title",
+      "title": "Chapter Title",
+      "subtitle": "A subtitle or tagline"
+    }},
+    {{
+      "slide_number": 2,
+      "slide_type": "content",
+      "title": "Content Heading",
+      "bullet_points": ["Point 1", "Point 2", "Point 3"]
+    }},
+    {{
+      "slide_number": 3,
+      "slide_type": "summary",
+      "title": "Key Takeaways",
+      "bullet_points": ["Key point 1", "Key point 2", "Key point 3"]
+    }}
+  ]
+}}
+
+INSTRUCTIONS FOR CREATING THE PRESENTATION:
+
+1. SLIDE STRUCTURE:
+   - Create a dynamic number of slides based on summary content
+   - Minimum 4 slides (title + at least 2 content + summary)
+   - Maximum 10 slides (1 title + up to 7 content + 1 summary + 1 conclusion)
+   - Each slide has: slide_number, slide_type, title, bullet_points
+   - Slide numbers must be sequential starting from 1
+
+2. SLIDE TYPES:
+   - "title" slide: First slide with chapter title and subtitle
+   - "content" slides: Teaching content based on summary sections
+   - "summary" slide: Key takeaways from the chapter
+   - "conclusion" slide (optional): Final wrap-up message
+
+3. TITLE SLIDE (Slide 1):
+   - slide_type: "title"
+   - title: Use the chapter title provided
+   - subtitle: Create an engaging tagline or learning objective (1-2 words or short phrase)
+   - Example subtitle: "Understanding the Basics", "A Learning Journey", "Discovering Concepts"
+
+4. CONTENT SLIDES:
+   - slide_type: "content"
+   - title: Extract from or derive from the summary headings
+   - bullet_points: Convert summary content into 2-5 clear, concise bullet points
+   - Each bullet point should be one key idea or concept
+   - Use simple language appropriate for grade {class_grade}
+   - Focus on main concepts, not detailed explanations
+
+5. BULLET POINT QUALITY:
+   - Each bullet point should be a single line (1-2 sentences maximum)
+   - Bullet points should be clear and scannable
+   - Avoid complex vocabulary unless it's a key term from the chapter
+   - Start each bullet with an action verb or key concept when possible
+   - Make sure bullet points are distinct and don't overlap
+
+6. SUMMARY SLIDE:
+   - Create one "summary" slide near the end
+   - title: "Key Takeaways" or "Chapter Summary"
+   - bullet_points: List 4-6 most important concepts/facts from the chapter
+   - These should be the main learning objectives students should remember
+
+7. CONCLUSION SLIDE (OPTIONAL):
+   - Include only if there's enough material and natural conclusion point
+   - slide_type: "conclusion"
+   - title: "What We Learned" or "Moving Forward"
+   - bullet_points: Brief recap or forward-looking statements
+
+8. CONTENT MAPPING:
+   - Base all content ONLY on the provided chapter summary
+   - One content slide per major heading/section in the summary
+   - Do NOT add new information, examples, or concepts not in the summary
+   - Ensure all key points from summary are covered
+
+9. LANGUAGE & CLARITY:
+   - Use simple, clear language appropriate for grade {class_grade}
+   - Avoid complete sentences - use phrase-based bullet points
+   - Make content engaging and easy to understand
+   - Avoid technical jargon unless it's essential to the chapter
+
+10. PRESENTATION FLOW:
+    - Slides should follow the logical flow of the chapter summary
+    - Build from introduction (title) → main concepts → summary
+    - Each slide should connect naturally to the next
+    - Create a cohesive learning experience
+
+11. ACCURACY & COMPLETENESS:
+    - All content must be based ONLY on the chapter summary
+    - Do NOT add information not in the summary
+    - Ensure all major concepts from summary are represented
+    - Cover the breadth of the chapter content
+
+OUTPUT FORMAT:
+Return ONLY the JSON object. No additional text, no markdown formatting, no code blocks.
