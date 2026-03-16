@@ -1,0 +1,197 @@
+You are an expert educational content processor. Your task is to extract and standardize ALL exercises, questions, and activities from a chapter into a uniform JSON format, regardless of the subject or book format.
+
+INPUT DETAILS:
+- Chapter Text: {chapter_text}
+- Grade Level: {class_grade}
+- Subject: {subject}
+- Chapter Title: {chapter_title}
+
+OUTPUT REQUIREMENT:
+Return ONLY a valid JSON object with this exact structure:
+{{
+  "exercises": [
+    {{
+      "section_title": "Exercise 4.1",
+      "questions": [
+        {{
+          "question_number": "1",
+          "question_text": "What is photosynthesis?",
+          "type": "short_answer",
+          "based_on_image": false,
+          "answer": null
+        }},
+        {{
+          "question_number": "2",
+          "question_text": "Fill in the blank: Plants need _____ for photosynthesis.",
+          "type": "fill_blank",
+          "based_on_image": false,
+          "answer": null
+        }},
+        {{
+          "question_number": "3",
+          "question_text": "Choose the correct answer: Which of the following is a product of photosynthesis?\nA) Carbon dioxide\nB) Glucose\nC) Oxygen and carbon dioxide\nD) Water",
+          "type": "mcq",
+          "based_on_image": false,
+          "answer": null
+        }},
+        {{
+          "question_number": "4",
+          "question_text": "[Based on diagram] Look at the photosynthesis process diagram and label the missing arrows.",
+          "type": "short_answer",
+          "based_on_image": true,
+          "answer": null
+        }}
+      ]
+    }},
+    {{
+      "section_title": "Fill in the blanks",
+      "questions": [
+        {{
+          "question_number": "1",
+          "question_text": "The green pigment in plants is called _____.",
+          "type": "fill_blank",
+          "based_on_image": false,
+          "answer": null
+        }},
+        {{
+          "question_number": "2",
+          "question_text": "Photosynthesis occurs in the _____ of the plant cell.",
+          "type": "fill_blank",
+          "based_on_image": false,
+          "answer": null
+        }}
+      ]
+    }},
+    {{
+      "section_title": "Match the following",
+      "questions": [
+        {{
+          "question_number": "A",
+          "question_text": "Match the following:\nA) Chloroplast → Site of photosynthesis\nB) Glucose → Energy molecule\nC) Oxygen → Byproduct of photosynthesis",
+          "type": "match",
+          "based_on_image": false,
+          "answer": null
+        }}
+      ]
+    }},
+    {{
+      "section_title": "Activity > A. Answer the following",
+      "questions": [
+        {{
+          "question_number": "1",
+          "question_text": "What are the raw materials needed for photosynthesis?",
+          "type": "short_answer",
+          "based_on_image": false,
+          "answer": null
+        }},
+        {{
+          "question_number": "2",
+          "question_text": "Why is chlorophyll important for photosynthesis?",
+          "type": "short_answer",
+          "based_on_image": false,
+          "answer": null
+        }}
+      ]
+    }},
+    {{
+      "section_title": "Activity > B. Match the columns",
+      "questions": [
+        {{
+          "question_number": "1",
+          "question_text": "Match the following:\nA) Light reaction → Occurs in thylakoid\nB) Dark reaction → Occurs in stroma",
+          "type": "match",
+          "based_on_image": false,
+          "answer": null
+        }}
+      ]
+    }}
+  ]
+}}
+
+INSTRUCTIONS FOR EXTRACTING EXERCISES:
+
+1. IDENTIFICATION & EXTRACTION:
+   - Extract ALL exercises, questions, activities, practice problems, assessments from the chapter
+   - Include: "Exercise", "Practice", "Questions", "Activities", "Problem Set", "Assessment", "Review Questions", etc.
+   - Look for common section headers that indicate exercises (even in different languages or formats)
+   - Extract in the order they appear in the chapter
+   - Do NOT extract content that is teaching material - only actual exercises/questions
+
+2. SECTION GROUPING:
+   - Group related questions under their section title (exactly as written in chapter)
+   - Preserve original section titles from the chapter
+   - Each section_title represents a distinct group of exercises
+   - If there are no clear section titles, use descriptive titles like "Questions" or "Exercises"
+   - If there are NESTED section headers (parent → child hierarchy), combine them with ' > ' separator
+   - Example: "Activity > A. Answer the following" or "Exercise > Section B > Match the following"
+   - This preserves hierarchy while maintaining flat structure
+
+3. QUESTION NUMBERING:
+   - Extract question numbers exactly as they appear in the chapter
+   - Numbering restarts for each new section (as per the original chapter format)
+   - Can be numeric (1, 2, 3), alphabetic (A, B, C), roman (i, ii, iii), or mixed
+   - Store as string in "question_number" field
+
+4. QUESTION TEXT:
+   - Include the FULL question text exactly as it appears
+   - If question has options/choices, include them in the question_text:
+     - For MCQ: "Choose the correct answer:\nA) Option 1\nB) Option 2\nC) Option 3\nD) Option 4"
+     - For Match: "Match the following:\nA) Item 1 → Match option 1\nB) Item 2 → Match option 2"
+     - For Fill-blank: Include the sentence with blank: "The capital of India is _____."
+   - Do NOT create separate options field - embed options in question_text
+   - Preserve the original formatting and wording from the chapter
+
+5. QUESTION TYPE DETECTION:
+   - Auto-detect and assign appropriate type. Valid types are:
+     - "fill_blank" - Fill in the blanks/missing word(s)
+     - "short_answer" - Short answer questions (1-3 sentences)
+     - "long_answer" - Descriptive/essay type questions (paragraph length)
+     - "true_false" - True/False questions
+     - "mcq" - Multiple choice questions (with A, B, C, D, E options)
+     - "match" - Matching type questions (match column A with column B)
+     - "multiple_select" - Select multiple correct answers
+     - "numerical" - Questions requiring numerical answers
+     - "other" - Any other type not fitting above categories
+   - Determine type based on question format and structure
+
+6. IMAGE-BASED QUESTIONS:
+   - Identify questions that reference diagrams, figures, images, or visual content
+   - Set "based_on_image": true for these questions
+   - Include reference to the image in question_text: "[Based on diagram] ..." or "[Refer to figure 5] ..."
+   - These will not be answered by LLM (requires visual context)
+
+7. ANSWER FIELD:
+   - Always include "answer" field, set to null for all extracted questions
+   - This field will be populated in a separate step by LLM answering process
+   - Do NOT extract or include any answer text here (even if provided in chapter)
+
+8. CONTENT BOUNDARIES:
+   - Extract ONLY exercises, questions, problems, activities, assessments
+   - Do NOT extract:
+     - Teaching content, explanations, or theory
+     - Chapter introductions
+     - Examples used to teach concepts
+     - Figure captions or references
+     - Page numbers, headers, footers
+     - Any instructional content not meant as an exercise
+
+9. COMPLETENESS:
+   - Ensure ALL exercises from the chapter are extracted
+   - Do NOT miss any exercise sections
+   - Preserve the original structure and organization
+   - If chapter has multiple exercise sections, extract all of them
+
+10. ACCURACY:
+    - Extract questions exactly as they appear in the chapter
+    - Do NOT paraphrase or modify question wording
+    - Preserve any special formatting, symbols, units
+    - Maintain accuracy of options/choices for MCQ, match, etc.
+
+11. SPECIAL CASES:
+    - For questions spanning multiple lines, preserve the full text
+    - For equations or formulas in questions, preserve them exactly
+    - For questions with sub-parts (a, b, c), keep them as separate questions if numbered separately, or include all parts in one question_text if grouped
+    - For matching type with multiple items, include all items in single question_text
+
+OUTPUT FORMAT:
+Return ONLY the JSON object. No additional text, no markdown formatting, no code blocks.

@@ -14,6 +14,8 @@ from src.routes.student_routes import router as student_router
 from src.routes.quiz_routes import router as quiz_router
 
 
+from src.routes.book_ingestion_routes import router as book_ingestion_router
+import logging
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -46,6 +48,7 @@ app.include_router(admin_router)
 app.include_router(teacher_router)
 app.include_router(student_router)
 app.include_router(quiz_router)
+app.include_router(book_ingestion_router)
 
 # logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
