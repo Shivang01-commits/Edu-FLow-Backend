@@ -211,7 +211,8 @@ class Book(Base):
     chapter_number = Column(Integer, nullable=False)
     chapter_title = Column(String, nullable=False)
     isbn = Column(String, nullable=True, index=True)
-    scraped_chapter = Column(String, nullable=True, index=True)
+    # change this scraped_nullable to False
+    scraped_chapter = Column(String, nullable=False)
     summary = Column(JSONB, nullable=True)
     qa_bank = Column(JSONB, nullable=True)
     quiz = Column(JSONB, nullable=True)

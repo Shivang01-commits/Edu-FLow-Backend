@@ -23,6 +23,7 @@ class UpdateBookFieldsRequest(BaseModel):
     quiz: Optional[dict] = None
     ppt_structure: Optional[dict] = None
     chapter_title: Optional[str] = None
+    scraped_chapter: Optional[str] = None
     isbn: Optional[str] = None
 
 
