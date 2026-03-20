@@ -45,6 +45,7 @@ router = APIRouter(prefix="/books", tags=["Global Books"])
     ),
 )
 async def ingest_book(
+    board: str = Form(...),
     file: UploadFile = File(...),
     book_name: str = Form(...),
     class_grade: int = Form(...),
@@ -63,6 +64,7 @@ async def ingest_book(
         shutil.copyfileobj(file.file, buffer)
 
     metadata = {
+        "board": board,
         "book_name": book_name,
         "class_grade": class_grade,
         "subject": subject,
@@ -95,38 +97,6 @@ async def ingest_book(
         "message": "Book ingested and saved successfully",
         "book": book,
     }
-
-
-# ---------------------------------------------------------------------------
-# MANUAL CREATE — store pre-generated content directly (no AI, no PDF)
-# Used when content is provided externally
-# ---------------------------------------------------------------------------
-
-
-# @books_router.post(
-#     "/",
-#     status_code=201,
-#     summary="Store a new global book chapter with pre-generated content [sudo_admin only]",
-# )
-# def create_book(
-#     data: CreateBookRequest,
-#     db: Session = Depends(get_db),
-#     current_user: User = Depends(require_role("sudo_admin")),
-# ):
-#     return book_service.create_book(
-#         db=db,
-#         book_name=data.book_name,
-#         class_grade=data.class_grade,
-#         subject=data.subject,
-#         chapter_number=data.chapter_number,
-#         chapter_title=data.chapter_title,
-#         scraped_chapter=data.scraped_chapter,
-#         summary=data.summary,
-#         qa_bank=data.qa_bank,
-#         quiz=data.quiz,
-#         ppt_structure=data.ppt_structure,
-#         isbn=data.isbn,
-#     )
 
 
 # READ Global Books

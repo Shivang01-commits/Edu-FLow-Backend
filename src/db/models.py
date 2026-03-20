@@ -41,8 +41,15 @@ class School(Base):
     school_address = Column(String, nullable=True)
     school_phone = Column(String, nullable=True)
     admin_email = Column(String, unique=True, nullable=False)
+    city = Column(String, nullable=False)
+    state = Column(String, nullable=False)
+    board = Column(String, nullable=False)
+    affiliation_number = Column(String, nullable=False)
+    registration_certificate_url = Column(String, nullable=True)
+    noc_affiliation_url = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
+    plan = Column(String, nullable=False)
 
     users = relationship("User", back_populates="school")
     classes = relationship("Class", back_populates="school")
@@ -68,6 +75,7 @@ class User(Base):
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=True)
     date_of_birth = Column(Date, nullable=True)
+    phone_number = Column(String, nullable=True)
     role = Column(
         SAEnum(UserRole, name="userrole"), nullable=False, default=UserRole.student
     )
@@ -211,6 +219,7 @@ class Book(Base):
     chapter_number = Column(Integer, nullable=False)
     chapter_title = Column(String, nullable=False)
     isbn = Column(String, nullable=True, index=True)
+    board = Column(String, nullable=True, index=True)
     # change this scraped_nullable to False
     scraped_chapter = Column(String, nullable=False)
     summary = Column(JSONB, nullable=True)

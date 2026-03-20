@@ -15,6 +15,7 @@ class CreateBookRequest(BaseModel):
     quiz: dict
     ppt_structure: dict
     isbn: Optional[str] = None
+    board: str
 
 
 class UpdateBookFieldsRequest(BaseModel):
