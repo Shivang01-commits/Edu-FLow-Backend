@@ -2,7 +2,7 @@ import uuid
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from src.db.models import User, Class, ClassTeacher, ClassChapter, Enrollment, Book
-from src.models.books_schema import EditChapterContentRequest
+from src.models.books_schema import EditChapterContentRequest,PublishContentRequest
 
 class TeacherService:
     # DASHBOARD — main landing page for teacher after login
@@ -336,4 +336,89 @@ class TeacherService:
             "is_overridden": is_overridden,  # True if teacher already customized
         }    
 
+
+    def publish_chapter_content(
+        self,
+        db: Session,
+        teacher: User,
+        data: PublishContentRequest
+    ) -> dict:
         
+        # Step 1: Get or create ClassChapter
+        if data.class_chapter_id:
+            # Path 1: class_chapter_id provided (came from EDIT)
+            class_chapter = (
+                db.query(ClassChapter)
+                .filter(ClassChapter.class_chapter_id == data.class_chapter_id)
+                .first()
+            )
+            if not class_chapter:
+                raise HTTPException(status_code=404, detail="ClassChapter not found")
+        else:
+            # Path 2: chapter metadata provided (direct publish)
+            if not all([data.class_id, data.book_name, data.class_grade, 
+                        data.subject, data.chapter_number, data.chapter_title]):
+                raise HTTPException(
+                    status_code=422,
+                    detail="Either class_chapter_id OR complete chapter metadata required"
+                )
+            
+            # Verify teacher is assigned to this class
+            assignment = self._get_assignment_or_403(db, teacher.user_id, data.class_id)
+            
+            # Find the global book chapter
+            book = (
+                db.query(Book)
+                .filter(
+                    Book.book_name == data.book_name,
+                    Book.class_grade == data.class_grade,
+                    Book.subject == data.subject.lower().strip(),
+                    Book.chapter_number == data.chapter_number
+                )
+                .first()
+            )
+            
+            if not book:
+                raise HTTPException(status_code=404, detail="Book chapter not found")
+            
+            # Get or create ClassChapter
+            class_chapter = (
+                db.query(ClassChapter)
+                .filter(
+                    ClassChapter.class_id == data.class_id,
+                    ClassChapter.book_id == book.book_id,
+                    ClassChapter.chapter_number == data.chapter_number,
+                    ClassChapter.teacher_id == teacher.user_id
+                )
+                .first()
+            )
+            
+            if not class_chapter:
+                class_chapter = ClassChapter(
+                    class_id=data.class_id,
+                    book_id=book.book_id,
+                    chapter_number=data.chapter_number,
+                    teacher_id=teacher.user_id,
+                    chapter_title=data.chapter_title,
+                    subject=data.subject,
+                )
+                db.add(class_chapter)
+                db.flush()
+        
+        # Step 2: Update content
+        content_field = f"custom_{data.content_type}"
+        override_flag = f"is_{data.content_type}_overridden"
+        
+        setattr(class_chapter, content_field, data.content)
+        setattr(class_chapter, override_flag, True)
+        class_chapter.published_date = datetime.utcnow()
+        
+        db.commit()
+        db.refresh(class_chapter)
+        
+        return {
+            "message": f"{data.content_type} published successfully",
+            "class_chapter_id": str(class_chapter.class_chapter_id),
+            "content_type": data.content_type,
+            "published_date": class_chapter.published_date,
+        }
