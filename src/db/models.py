@@ -76,6 +76,11 @@ class User(Base):
     last_name = Column(String, nullable=True)
     date_of_birth = Column(Date, nullable=True)
     phone_number = Column(String, nullable=True)
+
+    # admission_number = Column(String, nullable=True)
+    # join_date = Column(String, nullable=True)
+    # designation = Column(String, nullable=True)
+
     role = Column(
         SAEnum(UserRole, name="userrole"), nullable=False, default=UserRole.student
     )

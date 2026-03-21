@@ -9,6 +9,7 @@ from src.db.models import User, UserRole, School
 from src.services.db_services.auth_service import hash_password
 from src.services.email_service import send_admin_welcome_email
 from src.services.db_services.admin_service import generate_random_password
+from src.utils.db_utils import get_school_or_404, get_user_or_404
 
 
 class SudoAdminService:
@@ -173,7 +174,7 @@ class SudoAdminService:
         }
 
     def get_admin_by_id(self, db: Session, admin_id: uuid.UUID) -> dict:
-        admin = self._get_user_or_404(db, admin_id, role=UserRole.admin)
+        admin = get_user_or_404(db, admin_id, role=UserRole.admin)
         school = db.query(School).filter(School.school_id == admin.school_id).first()
 
         return {
@@ -203,7 +204,7 @@ class SudoAdminService:
     # GET SCHOOL WITH ADMIN DETAILS — for individual school view
     # -----------------------------------------------------------------------
     def get_school_with_admin(self, db: Session, school_id: uuid.UUID) -> dict:
-        school = self._get_school_or_404(db, school_id)
+        school = get_school_or_404(db, school_id)
 
         admin = (
             db.query(User)
@@ -251,7 +252,7 @@ class SudoAdminService:
     # DEACTIVATE SCHOOL
     # -----------------------------------------------------------------------
     def deactivate_school(self, db: Session, school_id: uuid.UUID) -> dict:
-        school = self._get_school_or_404(db, school_id)
+        school = get_school_or_404(db, school_id)
 
         if not school.is_active:
             raise HTTPException(
@@ -281,37 +282,4 @@ class SudoAdminService:
     # GET SCHOOL BY ID
     # -----------------------------------------------------------------------
     def get_school_by_id(self, db: Session, school_id: uuid.UUID) -> School:
-        return self._get_school_or_404(db, school_id)
-
-    # -----------------------------------------------------------------------
-    # Internal
-    # -----------------------------------------------------------------------
-    def _get_school_or_404(self, db: Session, school_id: uuid.UUID) -> School:
-        school = db.query(School).filter(School.school_id == school_id).first()
-        if not school:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="School not found"
-            )
-        return school
-
-    def _get_user_or_404(
-        self,
-        db: Session,
-        user_id: uuid.UUID,
-        role: UserRole = None,
-    ) -> User:
-        query = db.query(User).filter(User.user_id == user_id)
-
-        if role:
-            query = query.filter(User.role == role)
-
-        user = query.first()
-
-        if not user:
-            role_label = role.value.replace("_", " ") if role else "User"
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"{role_label.capitalize()} not found",
-            )
-
-        return user
+        return get_school_or_404(db, school_id)
