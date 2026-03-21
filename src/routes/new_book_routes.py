@@ -23,7 +23,7 @@ from src.services.db_services.book_service import BookService, ClassChapterServi
 from src.services.ai_services.book_ingestion_services import BookIngestionService
 from src.utils.pdf_extractor import PDFExtractor
 from src.utils.jwt_handler import get_current_user, require_role
-from src.models.books_schema import UpdateBookFieldsRequest,GetChapterContentRequest
+from src.models.books_schema import UpdateBookFieldsRequest
 
 book_service = BookService()
 chapter_service = ClassChapterService()
@@ -205,19 +205,7 @@ def delete_book(
     return book_service.delete_book(db, book_id)
 
 
-@router.post(
-    "/get-content",
-    summary="Get chapter content [teacher only]",
-)
-def get_chapter_content(
-    data: GetChapterContentRequest,  # Pydantic schema
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("teacher")),
-):
-    return teacher_service.get_chapter_content(
-        db, data.book_name, data.class_grade, data.subject, 
-        data.chapter_number, data.content_type
-    )
+
 
 # TESTING ROUTES (FOR DEVELOPEMENT PURPOSES ONLY)
 

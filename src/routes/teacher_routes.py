@@ -72,7 +72,6 @@ def get_available_books(
     return teacher_service.get_available_books(db, current_user, class_id)
 
 
-
 @router.get(
     "/book-names",
     summary="Get list of book names for a subject and grade [teacher only]",

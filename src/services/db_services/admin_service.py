@@ -20,11 +20,17 @@ from typing import Optional
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from src.db.models import User, UserRole, Class, Enrollment, ClassTeacher, School
+from src.db.models import User, UserRole, Class, Enrollment, ClassTeacher
 from src.services.db_services.auth_service import hash_password
 from src.services.email_service import (
     send_student_welcome_email,
     send_teacher_welcome_email,
+)
+from src.utils.db_utils import (
+    get_school_or_404,
+    get_user_or_404,
+    check_email_unique,
+    get_class_or_404,
 )
 
 
@@ -71,9 +77,9 @@ class AdminService:
         last_name: Optional[str],
         date_of_birth: date,
     ) -> dict:
-        self._check_email_unique(db, email)
+        check_email_unique(db, email)
 
-        school = self._get_school_or_404(db, admin.school_id)
+        school = get_school_or_404(db, admin.school_id)
         raw_password = generate_random_password()
 
         teacher = User(
@@ -114,16 +120,16 @@ class AdminService:
         date_of_birth: date,
         class_id: uuid.UUID,
     ) -> dict:
-        self._check_email_unique(db, email)
+        check_email_unique(db, email)
 
-        class_ = self._get_class_or_404(db, class_id)
+        class_ = get_class_or_404(db, class_id)
         if class_.school_id != admin.school_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="This class does not belong to your school",
             )
 
-        school = self._get_school_or_404(db, admin.school_id)
+        school = get_school_or_404(db, admin.school_id)
         raw_password = generate_random_password()
 
         student = User(
@@ -212,7 +218,7 @@ class AdminService:
         subject: Optional[str] = None,
         is_classroom_teacher: bool = False,
     ) -> ClassTeacher:
-        teacher = self._get_user_or_404(db, teacher_id)
+        teacher = get_user_or_404(db, teacher_id)
         if teacher.role != UserRole.teacher:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="User is not a teacher"
@@ -223,7 +229,7 @@ class AdminService:
                 detail="Teacher does not belong to your school",
             )
 
-        class_ = self._get_class_or_404(db, class_id)
+        class_ = get_class_or_404(db, class_id)
         if class_.school_id != admin.school_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -295,7 +301,7 @@ class AdminService:
     def list_students_in_class(
         self, db: Session, admin: User, class_id: uuid.UUID
     ) -> list[dict]:
-        class_ = self._get_class_or_404(db, class_id)
+        class_ = get_class_or_404(db, class_id)
         if class_.school_id != admin.school_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -331,7 +337,7 @@ class AdminService:
     # DEACTIVATE USER
     # -----------------------------------------------------------------------
     def deactivate_user(self, db: Session, admin: User, user_id: uuid.UUID) -> dict:
-        user = self._get_user_or_404(db, user_id)
+        user = get_user_or_404(db, user_id)
         if user.school_id != admin.school_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -345,14 +351,14 @@ class AdminService:
     # RESEND PASSWORD
     # -----------------------------------------------------------------------
     def resend_password(self, db: Session, admin: User, user_id: uuid.UUID) -> dict:
-        user = self._get_user_or_404(db, user_id)
+        user = get_user_or_404(db, user_id)
         if user.school_id != admin.school_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User does not belong to your school",
             )
 
-        school = self._get_school_or_404(db, admin.school_id)
+        school = get_school_or_404(db, admin.school_id)
         raw_password = generate_random_password()
 
         user.password_hash = hash_password(raw_password)
@@ -377,36 +383,102 @@ class AdminService:
 
         return {"message": f"New password generated and sent to {user.email}"}
 
+    def get_student_by_id(
+        self, db: Session, admin: User, student_id: uuid.UUID
+    ) -> dict:
+        student = get_user_or_404(db, student_id)
+
+        if student.role != UserRole.student:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Student not found",
+            )
+        if student.school_id != admin.school_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This student does not belong to your school",
+            )
+
+        enrollment = (
+            db.query(Enrollment)
+            .filter(
+                Enrollment.student_id == student_id,
+                Enrollment.is_active == True,
+            )
+            .first()
+        )
+
+        return {
+            "student_id": str(student.user_id),
+            "first_name": student.first_name,
+            "last_name": student.last_name,
+            "email": student.email,
+            "phone_number": student.phone_number,
+            "date_of_birth": student.date_of_birth,
+            "admission_number": student.admission_number,
+            "is_active": student.is_active,
+            "is_password_changed": student.is_password_changed,
+            "created_at": student.created_at,
+            "enrollment": {
+                "class_id": str(enrollment.class_id),
+                "current_class": enrollment.current_class,
+                "enrollment_date": enrollment.enrollment_date,
+                "is_active": enrollment.is_active,
+            }
+            if enrollment
+            else None,
+        }
+
     # -----------------------------------------------------------------------
-    # Internal helpers
+    # GET SINGLE TEACHER BY ID
     # -----------------------------------------------------------------------
-    def _check_email_unique(self, db: Session, email: str) -> None:
-        if db.query(User).filter(User.email == email.lower().strip()).first():
+    def get_teacher_by_id(
+        self, db: Session, admin: User, teacher_id: uuid.UUID
+    ) -> dict:
+        teacher = get_user_or_404(db, teacher_id)
+
+        if teacher.role != UserRole.teacher:
             raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"A user with email {email} already exists",
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Teacher not found",
+            )
+        if teacher.school_id != admin.school_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This teacher does not belong to your school",
             )
 
-    def _get_school_or_404(self, db: Session, school_id) -> School:
-        school = db.query(School).filter(School.school_id == school_id).first()
-        if not school:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="School not found"
-            )
-        return school
+        # get all classes this teacher is assigned to
+        assignments = (
+            db.query(ClassTeacher).filter(ClassTeacher.teacher_id == teacher_id).all()
+        )
 
-    def _get_class_or_404(self, db: Session, class_id: uuid.UUID) -> Class:
-        class_ = db.query(Class).filter(Class.class_id == class_id).first()
-        if not class_:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Class not found"
-            )
-        return class_
+        classes = []
+        for ct in assignments:
+            class_ = db.query(Class).filter(Class.class_id == ct.class_id).first()
+            if class_:
+                classes.append(
+                    {
+                        "class_id": str(class_.class_id),
+                        "class_name": class_.class_name,
+                        "section": class_.section,
+                        "grade_level": class_.grade_level,
+                        "subject": ct.subject,
+                        "is_classroom_teacher": ct.is_classroom_teacher,
+                        "assigned_date": ct.assigned_date,
+                    }
+                )
 
-    def _get_user_or_404(self, db: Session, user_id: uuid.UUID) -> User:
-        user = db.query(User).filter(User.user_id == user_id).first()
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-            )
-        return user
+        return {
+            "teacher_id": str(teacher.user_id),
+            "first_name": teacher.first_name,
+            "last_name": teacher.last_name,
+            "email": teacher.email,
+            "phone_number": teacher.phone_number,
+            "date_of_birth": teacher.date_of_birth,
+            "is_active": teacher.is_active,
+            "is_password_changed": teacher.is_password_changed,
+            "created_at": teacher.created_at,
+            "assigned_classes": classes,
+            "total_classes": len(classes),
+        }

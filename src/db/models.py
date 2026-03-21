@@ -76,6 +76,11 @@ class User(Base):
     last_name = Column(String, nullable=True)
     date_of_birth = Column(Date, nullable=True)
     phone_number = Column(String, nullable=True)
+
+    # admission_number = Column(String, nullable=True)
+    # join_date = Column(String, nullable=True)
+    # designation = Column(String, nullable=True)
+
     role = Column(
         SAEnum(UserRole, name="userrole"), nullable=False, default=UserRole.student
     )
@@ -267,7 +272,9 @@ class ClassChapter(Base):
         ForeignKey("users.user_id", ondelete="SET NULL"),
         nullable=True,
     )
-    chapter_title = Column(String, nullable=False)
+    # chapter_title = Column(String, nullable=True)
+    chapter_number = Column(String, nullable=False)
+
     subject = Column(String, nullable=False)
 
     custom_summary = Column(JSONB, nullable=True, default=None)

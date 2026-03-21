@@ -4,6 +4,7 @@ from fastapi import HTTPException, status
 from src.db.models import User, Class, ClassTeacher, ClassChapter, Enrollment, Book
 from src.models.books_schema import EditChapterContentRequest,PublishContentRequest
 
+
 class TeacherService:
     # DASHBOARD — main landing page for teacher after login
     # Returns all assigned classes with stats
@@ -190,41 +191,38 @@ class TeacherService:
             "email": teacher.email,
             "is_password_changed": teacher.is_password_changed,
         }
-    
-    def get_book_names(self, db: Session, grade_level: int, subject: str) -> dict:
-        books = (
+
+    def get_book_names(self, db: Session, grade_level: int, subject: str) -> list[str]:
+        results = (
             db.query(Book.book_name)
-            .filter(...)
+            .filter(
+                Book.class_grade == grade_level,
+                Book.subject == subject.lower().strip(),
+            )
             .distinct()
             .order_by(Book.book_name)
-            .scalars()  # ← returns strings directly, no tuples
             .all()
         )
+        return [r[0] for r in results]
 
-        return {
-            "grade_level": grade_level,
-            "subject": subject,
-            "book_names": books 
-        }
-    
     def get_chapter_content(
-        self, 
-        db: Session, 
-        book_name: str, 
-        class_grade: int, 
-        subject: str, 
-        chapter_number: int, 
-        content_type: str
+        self,
+        db: Session,
+        book_name: str,
+        class_grade: int,
+        subject: str,
+        chapter_number: int,
+        content_type: str,
     ) -> dict:
-    
+
         # Validate content_type
         allowed_types = {"summary", "quiz", "qa_bank", "ppt_structure"}
         if content_type not in allowed_types:
             raise HTTPException(
                 status_code=422,
-                detail=f"Invalid content_type. Allowed: {allowed_types}"
+                detail=f"Invalid content_type. Allowed: {allowed_types}",
             )
-        
+
         # Query the book
         book = (
             db.query(Book)
@@ -232,14 +230,14 @@ class TeacherService:
                 Book.book_name == book_name,
                 Book.class_grade == class_grade,
                 Book.subject == subject.lower().strip(),
-                Book.chapter_number == chapter_number
+                Book.chapter_number == chapter_number,
             )
             .first()
         )
-        
+
         if not book:
             raise HTTPException(status_code=404, detail="Chapter not found")
-        
+
         # Return the requested content
         return {
             "book_name": book.book_name,
@@ -248,34 +246,38 @@ class TeacherService:
             "class_grade": book.class_grade,
             "subject": book.subject,
             "content_type": content_type,
-            content_type: getattr(book, content_type)  # Get the column dynamically
+            content_type: getattr(book, content_type),  # Get the column dynamically
         }
-        
+
+    # edit chapter content ----------------------- ----------------------
     def edit_chapter_content(
-        self,
-        db: Session,
-        teacher: User,
-        data: EditChapterContentRequest
+        self, db: Session, teacher: User, data: EditChapterContentRequest
     ) -> dict:
-        
+
         # Step 1: Verify teacher is assigned to this class
-        assignment = self._get_assignment_or_403(db, teacher.user_id, data.class_id)
-        
-        # Step 2: Find the global book chapter
+        self._get_assignment_or_403(db, teacher.user_id, data.class_id)
+
+        class_obj = db.query(Class).filter(Class.class_id == data.class_id).first()
+
+        if not class_obj:
+            raise HTTPException(status_code=404, detail="Class not found")
+
+        school_id = class_obj.school_id
+
         book = (
             db.query(Book)
             .filter(
                 Book.book_name == data.book_name,
                 Book.class_grade == data.class_grade,
                 Book.subject == data.subject.lower().strip(),
-                Book.chapter_number == data.chapter_number
+                Book.chapter_number == data.chapter_number,
             )
             .first()
         )
-        
+
         if not book:
             raise HTTPException(status_code=404, detail="Book chapter not found")
-        
+
         # Step 3: Check if ClassChapter exists, if not create it
         class_chapter = (
             db.query(ClassChapter)
@@ -283,19 +285,20 @@ class TeacherService:
                 ClassChapter.class_id == data.class_id,
                 ClassChapter.book_id == book.book_id,
                 ClassChapter.chapter_number == data.chapter_number,
-                ClassChapter.teacher_id == teacher.user_id
+                ClassChapter.teacher_id == teacher.user_id,
             )
             .first()
         )
-        
+
         if not class_chapter:
             # Create new ClassChapter
             class_chapter = ClassChapter(
+                school_id=school_id,
                 class_id=data.class_id,
                 book_id=book.book_id,
                 chapter_number=data.chapter_number,
                 teacher_id=teacher.user_id,
-                chapter_title=data.chapter_title,
+                # chapter_title=data.chapter_title,
                 subject=data.subject,
                 custom_summary=None,
                 custom_qa_bank=None,
@@ -309,12 +312,12 @@ class TeacherService:
             db.add(class_chapter)
             db.commit()
             db.refresh(class_chapter)
-        
+
         # Step 4: Get the content to edit
         # If custom content exists, use it; otherwise use global book content
         content_field = f"custom_{data.content_type}"
         custom_content = getattr(class_chapter, content_field)
-        
+
         if custom_content:
             # Teacher already customized this, show custom version
             editable_content = custom_content
@@ -323,7 +326,7 @@ class TeacherService:
             # First time editing, show global book content
             editable_content = getattr(book, data.content_type)
             is_overridden = False
-        
+
         return {
             "class_chapter_id": str(class_chapter.class_chapter_id),
             "book_name": book.book_name,
