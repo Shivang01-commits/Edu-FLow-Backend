@@ -17,7 +17,7 @@ from src.db.main import get_db
 from src.db.models import User
 from src.services.db_services.teacher_service import TeacherService
 from src.utils.jwt_handler import require_role
-from src.models.books_schema import GetChapterContentRequest
+from src.models.books_schema import EditChapterContentRequest
 
 
 router = APIRouter(prefix="/teacher", tags=["Teacher"])
@@ -88,21 +88,21 @@ def get_book_names(
 ):
     return teacher_service.get_book_names(db, grade_level, subject)
 
-
 @router.post(
-    "/get-content",
-    summary="Get chapter content [teacher only]",
+    "/class-chapters/edit",
+    summary="Get chapter content for editing [teacher only]",
+    description=(
+        "When teacher clicks EDIT, this returns the content "
+        "(from Book or ClassChapter if overridden) that can be edited. "
+        "Also creates ClassChapter record if it doesn't exist."
+    ),
 )
-def get_chapter_content(
-    data: GetChapterContentRequest,
+def edit_chapter_content(
+    data: EditChapterContentRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("teacher")),
 ):
-    return teacher_service.get_chapter_content(
-        db,
-        data.book_name,
-        data.class_grade,
-        data.subject,
-        data.chapter_number,
-        data.content_type,
-    )
+    return teacher_service.edit_chapter_content(db, current_user, data)
+
+
+    
