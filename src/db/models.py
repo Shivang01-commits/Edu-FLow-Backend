@@ -272,7 +272,9 @@ class ClassChapter(Base):
         ForeignKey("users.user_id", ondelete="SET NULL"),
         nullable=True,
     )
-    chapter_title = Column(String, nullable=False)
+    # chapter_title = Column(String, nullable=True)
+    chapter_number = Column(String, nullable=False)
+
     subject = Column(String, nullable=False)
 
     custom_summary = Column(JSONB, nullable=True, default=None)
