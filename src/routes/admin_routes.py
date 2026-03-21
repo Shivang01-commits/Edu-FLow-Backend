@@ -105,6 +105,38 @@ def list_students(
     return admin_service.list_students(db, current_user)
 
 
+@router.get(
+    "/students/{student_id}",
+    summary="Get single student details [admin only]",
+    description=(
+        "Returns full student profile including enrollment details. "
+        "403 if student belongs to a different school."
+    ),
+)
+def get_student(
+    student_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+):
+    return admin_service.get_student_by_id(db, current_user, student_id)
+
+
+@router.get(
+    "/teachers/{teacher_id}",
+    summary="Get single teacher details [admin only]",
+    description=(
+        "Returns full teacher profile including all assigned classes and subjects. "
+        "403 if teacher belongs to a different school."
+    ),
+)
+def get_teacher(
+    teacher_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+):
+    return admin_service.get_teacher_by_id(db, current_user, teacher_id)
+
+
 @router.post(
     "/students/{user_id}/deactivate",
     summary="Deactivate a student [admin only]",
