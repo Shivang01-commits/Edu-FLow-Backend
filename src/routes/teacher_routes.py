@@ -17,7 +17,7 @@ from src.db.main import get_db
 from src.db.models import User
 from src.services.db_services.teacher_service import TeacherService
 from src.utils.jwt_handler import require_role
-from src.models.books_schema import EditChapterContentRequest
+from src.models.books_schema import EditChapterContentRequest,PublishContentRequest
 
 
 router = APIRouter(prefix="/teacher", tags=["Teacher"])
@@ -105,4 +105,17 @@ def edit_chapter_content(
     return teacher_service.edit_chapter_content(db, current_user, data)
 
 
-    
+@router.post(
+    "/class-chapters/publish",
+    summary="Publish modified content [teacher only]",
+    description=(
+        "Can be called with class_chapter_id (after EDIT) "
+        "or with chapter metadata (direct publish without EDIT)"
+    ),
+)
+def publish_chapter_content(
+    data: PublishContentRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("teacher")),
+):
+    return teacher_service.publish_chapter_content(db, current_user, data)
