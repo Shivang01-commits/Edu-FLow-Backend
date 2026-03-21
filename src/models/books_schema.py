@@ -61,3 +61,14 @@ class GetChapterContentRequest(BaseModel):
     content_type: Literal["summary", "quiz", "qa_bank", "ppt_structure"] = Field(   #AutoFill
         ..., description="Type of content to fetch"
     )
+
+class EditChapterContentRequest(BaseModel):
+    class_id: uuid.UUID = Field(..., description="The class ID")
+    book_name: str = Field(..., description="Book name")
+    class_grade: int = Field(..., description="Class grade")
+    subject: str = Field(..., description="Subject")
+    chapter_number: int = Field(..., description="Chapter number")
+    chapter_title: str = Field(..., description="Chapter title")
+    content_type: Literal["summary", "quiz", "qa_bank", "ppt_structure"] = Field(
+        ..., description="Type of content to edit"
+    )
