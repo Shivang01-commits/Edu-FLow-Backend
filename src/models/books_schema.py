@@ -84,6 +84,7 @@ class EditChapterContentRequest(BaseModel):
         ..., description="Type of content to edit"
     )
 
+
 class PublishContentRequest(BaseModel):
     class_chapter_id: Optional[uuid.UUID] = Field(
         None, description="ClassChapter ID (if already created from EDIT)"
@@ -104,9 +105,9 @@ class PublishContentRequest(BaseModel):
     chapter_number: Optional[int] = Field(
         None, description="Chapter number (required if class_chapter_id is None)"
     )
-    chapter_title: Optional[str] = Field(
-        None, description="Chapter title (required if class_chapter_id is None)"
-    )
-    
+    # chapter_title: Optional[str] = Field(
+    #     None, description="Chapter title (required if class_chapter_id is None)"
+    # )
+
     content_type: Literal["summary", "quiz", "qa_bank", "ppt_structure"]
-    content: dict    
+    content: dict
