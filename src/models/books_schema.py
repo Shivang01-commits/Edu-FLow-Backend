@@ -61,3 +61,4 @@ class GetChapterContentRequest(BaseModel):
     content_type: Literal["summary", "quiz", "qa_bank", "ppt_structure"] = Field(   #AutoFill
         ..., description="Type of content to fetch"
     )
+    

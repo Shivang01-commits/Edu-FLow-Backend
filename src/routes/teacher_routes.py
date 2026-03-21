@@ -17,6 +17,8 @@ from src.db.main import get_db
 from src.db.models import User
 from src.services.db_services.teacher_service import TeacherService
 from src.utils.jwt_handler import require_role
+from src.models.books_schema import GetChapterContentRequest
+
 
 router = APIRouter(prefix="/teacher", tags=["Teacher"])
 teacher_service = TeacherService()
@@ -70,7 +72,6 @@ def get_available_books(
     return teacher_service.get_available_books(db, current_user, class_id)
 
 
-
 @router.get(
     "/book-names",
     summary="Get list of book names for a subject and grade [teacher only]",
@@ -86,3 +87,22 @@ def get_book_names(
     current_user: User = Depends(require_role("teacher")),
 ):
     return teacher_service.get_book_names(db, grade_level, subject)
+
+
+@router.post(
+    "/get-content",
+    summary="Get chapter content [teacher only]",
+)
+def get_chapter_content(
+    data: GetChapterContentRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("teacher")),
+):
+    return teacher_service.get_chapter_content(
+        db,
+        data.book_name,
+        data.class_grade,
+        data.subject,
+        data.chapter_number,
+        data.content_type,
+    )
