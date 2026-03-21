@@ -1,7 +1,6 @@
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel,Field
+from typing import Optional,Literal
 import uuid
-
 
 class CreateBookRequest(BaseModel):
     book_name: str
@@ -53,3 +52,12 @@ class OverridePPTRequest(BaseModel):
 
 class ResetOverridesRequest(BaseModel):
     fields: list[str]
+
+class GetChapterContentRequest(BaseModel):
+    book_name: str = Field(..., min_length=1, description="Name of the book")  #Dropdown
+    class_grade: int = Field(..., ge=1, le=12, description="Class grade (1-12)")  #Autofill
+    subject: str = Field(..., min_length=1, description="Subject name")     #Autofill
+    chapter_number: int = Field(..., ge=1, description="Chapter number")     #Teacher will fill
+    content_type: Literal["summary", "quiz", "qa_bank", "ppt_structure"] = Field(   #AutoFill
+        ..., description="Type of content to fetch"
+    )

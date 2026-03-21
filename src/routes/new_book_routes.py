@@ -18,16 +18,17 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 from src.db.main import get_db
 from src.db.models import User
+from src.services.db_services.teacher_service import TeacherService
 from src.services.db_services.book_service import BookService, ClassChapterService
 from src.services.ai_services.book_ingestion_services import BookIngestionService
 from src.utils.pdf_extractor import PDFExtractor
 from src.utils.jwt_handler import get_current_user, require_role
-from src.models.books_schema import UpdateBookFieldsRequest
+from src.models.books_schema import UpdateBookFieldsRequest,GetChapterContentRequest
 
 book_service = BookService()
 chapter_service = ClassChapterService()
 ai_service = BookIngestionService()
-
+teacher_service=TeacherService()
 router = APIRouter(prefix="/books", tags=["Global Books"])
 
 
@@ -203,6 +204,20 @@ def delete_book(
 ):
     return book_service.delete_book(db, book_id)
 
+
+@router.post(
+    "/get-content",
+    summary="Get chapter content [teacher only]",
+)
+def get_chapter_content(
+    data: GetChapterContentRequest,  # Pydantic schema
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("teacher")),
+):
+    return teacher_service.get_chapter_content(
+        db, data.book_name, data.class_grade, data.subject, 
+        data.chapter_number, data.content_type
+    )
 
 # TESTING ROUTES (FOR DEVELOPEMENT PURPOSES ONLY)
 
@@ -394,3 +409,5 @@ async def test_exercise_answering(
         return {"status": "success", "data": result}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+
