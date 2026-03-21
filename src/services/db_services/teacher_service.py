@@ -190,3 +190,64 @@ class TeacherService:
             "email": teacher.email,
             "is_password_changed": teacher.is_password_changed,
         }
+    
+    def get_book_names(self, db: Session, grade_level: int, subject: str) -> dict:
+        books = (
+            db.query(Book.book_name)
+            .filter(...)
+            .distinct()
+            .order_by(Book.book_name)
+            .scalars()  # ← returns strings directly, no tuples
+            .all()
+        )
+
+        return {
+            "grade_level": grade_level,
+            "subject": subject,
+            "book_names": books 
+        }
+    
+    def get_chapter_content(
+        self, 
+        db: Session, 
+        book_name: str, 
+        class_grade: int, 
+        subject: str, 
+        chapter_number: int, 
+        content_type: str
+    ) -> dict:
+    
+        # Validate content_type
+        allowed_types = {"summary", "quiz", "qa_bank", "ppt_structure"}
+        if content_type not in allowed_types:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid content_type. Allowed: {allowed_types}"
+            )
+        
+        # Query the book
+        book = (
+            db.query(Book)
+            .filter(
+                Book.book_name == book_name,
+                Book.class_grade == class_grade,
+                Book.subject == subject.lower().strip(),
+                Book.chapter_number == chapter_number
+            )
+            .first()
+        )
+        
+        if not book:
+            raise HTTPException(status_code=404, detail="Chapter not found")
+        
+        # Return the requested content
+        return {
+            "book_name": book.book_name,
+            "chapter_number": book.chapter_number,
+            "chapter_title": book.chapter_title,
+            "class_grade": book.class_grade,
+            "subject": book.subject,
+            "content_type": content_type,
+            content_type: getattr(book, content_type)  # Get the column dynamically
+        }
+    

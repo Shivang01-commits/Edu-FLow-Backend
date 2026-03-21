@@ -165,7 +165,7 @@ class BookService:
             )
             .first()
         )
-
+ 
 
 class ClassChapterService:
     # CREATE — assign a global book chapter to a class

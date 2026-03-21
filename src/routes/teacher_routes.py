@@ -68,3 +68,21 @@ def get_available_books(
     current_user: User = Depends(require_role("teacher")),
 ):
     return teacher_service.get_available_books(db, current_user, class_id)
+
+
+
+@router.get(
+    "/book-names",
+    summary="Get list of book names for a subject and grade [teacher only]",
+    description=(
+        "Returns distinct book names for given grade_level and subject. "
+        "Used to populate dropdown in 'Generate Summary/Quiz/etc' form."
+    ),
+)
+def get_book_names(
+    grade_level: int,
+    subject: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("teacher")),
+):
+    return teacher_service.get_book_names(db, grade_level, subject)
