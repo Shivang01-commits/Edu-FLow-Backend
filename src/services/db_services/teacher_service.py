@@ -55,7 +55,7 @@ class TeacherService:
             classes_data.append(
                 {
                     "class_id": str(class_.class_id),
-                    "class_name": class_.class_name,
+                    # "class_name": class_.class_name,
                     "section": class_.section,
                     "grade_level": class_.grade_level,
                     "school_name": school.school_name,
@@ -140,7 +140,7 @@ class TeacherService:
 
         return {
             "class_id": str(class_id),
-            "class_name": class_.class_name,
+            # "class_name": class_.class_name,
             "grade_level": class_.grade_level,
             "subject": assignment.subject,
             "total_books": len(books),
@@ -496,7 +496,7 @@ class TeacherService:
         
         return {
             "class_id": str(class_id),
-            "class_name": class_.class_name,
+            # "class_name": class_.class_name,
             "subject": assignment.subject,
             "content_type": content_type,
             "total_published": len(content_list),
