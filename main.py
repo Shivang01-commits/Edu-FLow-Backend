@@ -15,7 +15,11 @@ from src.routes.student_routes import router as student_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Server starting...")
-    init_db()
+    try:
+        init_db()
+        print("DB initialized")
+    except Exception as e:
+        print("DB init failed:", e)
     yield
     print("Server shutting down...")
 
