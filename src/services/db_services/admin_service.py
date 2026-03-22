@@ -173,6 +173,7 @@ class AdminService:
             first_name=first_name.strip(),
             last_name=last_name.strip() if last_name else None,
             date_of_birth=date_of_birth,
+            phone_number=parent_phone,
             role=UserRole.student,
             is_active=True,
             is_password_changed=False,
@@ -306,8 +307,8 @@ class AdminService:
     # -----------------------------------------------------------------------
     # LIST operations
     # -----------------------------------------------------------------------
-    def list_teachers(self, db: Session, admin: User) -> list[User]:
-        return (
+    def list_teachers(self, db: Session, admin: User) -> list[dict]:
+        teachers = (
             db.query(User)
             .filter(
                 User.school_id == admin.school_id,
@@ -317,9 +318,23 @@ class AdminService:
             .order_by(User.first_name)
             .all()
         )
+        return [
+            {
+                "teacher_id": str(t.user_id),
+                "first_name": t.first_name,
+                "last_name": t.last_name,
+                "email": t.email,
+                "phone_number": t.phone_number,
+                "date_of_birth": t.date_of_birth,
+                "is_active": t.is_active,
+                "is_password_changed": t.is_password_changed,
+                "created_at": t.created_at,
+            }
+            for t in teachers
+        ]
 
-    def list_students(self, db: Session, admin: User) -> list[User]:
-        return (
+    def list_students(self, db: Session, admin: User) -> list[dict]:
+        students = (
             db.query(User)
             .filter(
                 User.school_id == admin.school_id,
@@ -329,6 +344,20 @@ class AdminService:
             .order_by(User.first_name)
             .all()
         )
+        return [
+            {
+                "student_id": str(s.user_id),
+                "first_name": s.first_name,
+                "last_name": s.last_name,
+                "email": s.email,
+                "phone_number": s.phone_number,
+                "date_of_birth": s.date_of_birth,
+                "is_active": s.is_active,
+                "is_password_changed": s.is_password_changed,
+                "created_at": s.created_at,
+            }
+            for s in students
+        ]
 
     def list_classes(self, db: Session, admin: User) -> list[Class]:
         return (
