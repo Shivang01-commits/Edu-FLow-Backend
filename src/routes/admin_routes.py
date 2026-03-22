@@ -230,3 +230,32 @@ def assign_teacher_to_class(
         subject=data.subject,
         is_classroom_teacher=data.is_classroom_teacher,
     )
+
+
+@router.get(
+    "/classes/{class_id}",
+    summary="Get single student details [admin only]",
+    description=(
+        "Returns full student profile including enrollment details. "
+        "403 if student belongs to a different school."
+    ),
+)
+def get_class(
+    class_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+):
+    return admin_service.get_class_by_id(db, current_user, class_id)
+
+
+@router.delete(
+    "/classes/{class_id}",
+    summary="Delete a class [admin only]",
+    description="Cannot delete if students are actively enrolled.",
+)
+def delete_class(
+    class_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+):
+    return admin_service.delete_class(db, current_user, class_id)

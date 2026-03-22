@@ -551,3 +551,76 @@ class AdminService:
             "assigned_classes": classes,
             "total_classes": len(classes),
         }
+
+    def get_class_by_id(self, db: Session, admin: User, class_id: uuid.UUID) -> dict:
+        class_ = get_class_or_404(db, class_id)
+
+        if class_.school_id != admin.school_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This class does not belong to your school",
+            )
+
+        # count enrolled students
+        student_count = (
+            db.query(Enrollment)
+            .filter(
+                Enrollment.class_id == class_id,
+                Enrollment.is_active == True,
+            )
+            .count()
+        )
+
+        # get assigned teachers
+        assignments = (
+            db.query(ClassTeacher).filter(ClassTeacher.class_id == class_id).all()
+        )
+
+        return {
+            "class_id": str(class_.class_id),
+            # "class_name": class_.class_name,
+            "grade_level": class_.grade_level,
+            "section": class_.section,
+            "school_id": str(class_.school_id),
+            "created_at": class_.created_at,
+            "student_count": student_count,
+            "teachers": [
+                {
+                    "teacher_id": str(ct.teacher_id),
+                    "subject": ct.subject,
+                    "is_classroom_teacher": ct.is_classroom_teacher,
+                    "assigned_date": ct.assigned_date,
+                }
+                for ct in assignments
+            ],
+        }
+
+    def delete_class(self, db: Session, admin: User, class_id: uuid.UUID) -> dict:
+        class_ = get_class_or_404(db, class_id)
+
+        if class_.school_id != admin.school_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This class does not belong to your school",
+            )
+
+        # block deletion if students are actively enrolled
+        active_enrollments = (
+            db.query(Enrollment)
+            .filter(
+                Enrollment.class_id == class_id,
+                Enrollment.is_active == True,
+            )
+            .count()
+        )
+        if active_enrollments > 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot delete class — {active_enrollments} student(s) are still enrolled. Remove them first.",
+            )
+
+        db.delete(class_)
+        db.commit()
+        return {
+            "message": f"Class '{class_.grade_level} {class_.section or ''}' deleted successfully."
+        }
