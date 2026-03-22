@@ -351,6 +351,20 @@ class AdminService:
             .order_by(User.first_name)
             .all()
         )
+
+        # fetch all active enrollments for these students in one query
+        student_ids = [s.user_id for s in students]
+        enrollments = (
+            db.query(Enrollment)
+            .filter(
+                Enrollment.student_id.in_(student_ids),
+                Enrollment.is_active == True,
+            )
+            .all()
+        )
+        # build lookup dict: student_id → enrollment
+        enrollment_map = {e.student_id: e for e in enrollments}
+
         return [
             {
                 "student_id": str(s.user_id),
@@ -362,6 +376,17 @@ class AdminService:
                 "is_active": s.is_active,
                 "is_password_changed": s.is_password_changed,
                 "created_at": s.created_at,
+                "enrollment": {
+                    "grade_level": enrollment_map[s.user_id].current_class_grade,
+                    "section": enrollment_map[s.user_id].current_class_section,
+                    "admission_number": enrollment_map[s.user_id].admission_number,
+                    "parent_name": enrollment_map[s.user_id].parent_name,
+                    "parent_phone": enrollment_map[s.user_id].parent_phone,
+                    "fee_status": enrollment_map[s.user_id].fee_status,
+                    "enrollment_date": enrollment_map[s.user_id].enrollment_date,
+                }
+                if s.user_id in enrollment_map
+                else None,
             }
             for s in students
         ]
@@ -491,13 +516,16 @@ class AdminService:
             "email": student.email,
             "phone_number": student.phone_number,
             "date_of_birth": student.date_of_birth,
-            "admission_number": student.admission_number,
             "is_active": student.is_active,
             "is_password_changed": student.is_password_changed,
             "created_at": student.created_at,
             "enrollment": {
-                "class_id": str(enrollment.class_id),
-                "current_class": enrollment.current_class,
+                "grade_level": enrollment.current_class_grade,
+                "section": enrollment.current_class_section,
+                "admission_number": enrollment.admission_number,
+                "parent_name": enrollment.parent_name,
+                "parent_phone": enrollment.parent_phone,
+                "fee_status": enrollment.fee_status,
                 "enrollment_date": enrollment.enrollment_date,
                 "is_active": enrollment.is_active,
             }
@@ -505,9 +533,6 @@ class AdminService:
             else None,
         }
 
-    # -----------------------------------------------------------------------
-    # GET SINGLE TEACHER BY ID
-    # -----------------------------------------------------------------------
     def get_teacher_by_id(
         self, db: Session, admin: User, teacher_id: uuid.UUID
     ) -> dict:
@@ -524,26 +549,36 @@ class AdminService:
                 detail="This teacher does not belong to your school",
             )
 
-        # get all classes this teacher is assigned to
+        # fetch profile
+        profile = (
+            db.query(TeacherProfile)
+            .filter(TeacherProfile.teacher_id == teacher_id)
+            .first()
+        )
+
+        # fetch assigned classes — one query, no N+1
         assignments = (
             db.query(ClassTeacher).filter(ClassTeacher.teacher_id == teacher_id).all()
         )
+        class_ids = [ct.class_id for ct in assignments]
+        classes_db = db.query(Class).filter(Class.class_id.in_(class_ids)).all()
+        class_map = {c.class_id: c for c in classes_db}
 
-        classes = []
-        for ct in assignments:
-            class_ = db.query(Class).filter(Class.class_id == ct.class_id).first()
-            if class_:
-                classes.append(
-                    {
-                        "class_id": str(class_.class_id),
-                        "class_name": class_.class_name,
-                        "section": class_.section,
-                        "grade_level": class_.grade_level,
-                        "subject": ct.subject,
-                        "is_classroom_teacher": ct.is_classroom_teacher,
-                        "assigned_date": ct.assigned_date,
-                    }
-                )
+        assigned_classes = [
+            {
+                "class_id": str(ct.class_id),
+                "grade_level": class_map[ct.class_id].grade_level
+                if ct.class_id in class_map
+                else None,
+                "section": class_map[ct.class_id].section
+                if ct.class_id in class_map
+                else None,
+                "subject": ct.subject,
+                "is_classroom_teacher": ct.is_classroom_teacher,
+                "assigned_date": ct.assigned_date,
+            }
+            for ct in assignments
+        ]
 
         return {
             "teacher_id": str(teacher.user_id),
@@ -555,8 +590,15 @@ class AdminService:
             "is_active": teacher.is_active,
             "is_password_changed": teacher.is_password_changed,
             "created_at": teacher.created_at,
-            "assigned_classes": classes,
-            "total_classes": len(classes),
+            "profile": {
+                "designation": profile.designation,
+                "salary": str(profile.salary) if profile.salary else None,
+                "join_date": str(profile.join_date) if profile.join_date else None,
+            }
+            if profile
+            else None,
+            "assigned_classes": assigned_classes,
+            "total_classes": len(assigned_classes),
         }
 
     def get_class_by_id(self, db: Session, admin: User, class_id: uuid.UUID) -> dict:
