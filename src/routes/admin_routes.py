@@ -90,7 +90,12 @@ def register_student(
         first_name=data.first_name,
         last_name=data.last_name,
         date_of_birth=data.date_of_birth,
-        class_id=data.class_id,
+        # class_id=data.class_id,
+        class_grade=data.class_grade,
+        section=data.section,
+        admission_number=data.admission_number,
+        parent_name=data.parent_name,
+        parent_phone=data.parent_phone,
     )
 
 
@@ -174,7 +179,6 @@ def create_class(
     return admin_service.create_class(
         db=db,
         admin=current_user,
-        class_name=data.class_name,
         grade_level=data.grade_level,
         section=data.section,
     )

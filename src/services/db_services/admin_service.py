@@ -118,15 +118,45 @@ class AdminService:
         first_name: str,
         last_name: Optional[str],
         date_of_birth: date,
-        class_id: uuid.UUID,
+        class_grade: int,
+        section: str,
+        admission_number: int,
+        parent_name: str,
+        parent_phone: str,
     ) -> dict:
         check_email_unique(db, email)
 
-        class_ = get_class_or_404(db, class_id)
-        if class_.school_id != admin.school_id:
+        # lookup class by grade + section within admin's school
+        class_ = (
+            db.query(Class)
+            .filter(
+                Class.school_id == admin.school_id,
+                Class.grade_level == class_grade,
+                Class.section == section.upper().strip(),
+            )
+            .first()
+        )
+        if not class_:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="This class does not belong to your school",
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Class {class_grade} Section {section.upper()} not found in your school. Create it first.",
+            )
+
+        # check admission_number unique within this school
+        existing_admission = (
+            db.query(Enrollment)
+            .join(User, Enrollment.student_id == User.user_id)
+            .filter(
+                User.school_id == admin.school_id,
+                Enrollment.admission_number == admission_number,
+                Enrollment.is_active == True,
+            )
+            .first()
+        )
+        if existing_admission:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Admission number {admission_number} already exists in your school",
             )
 
         school = get_school_or_404(db, admin.school_id)
@@ -148,10 +178,15 @@ class AdminService:
 
         enrollment = Enrollment(
             school_id=admin.school_id,
-            class_id=class_id,
+            class_id=class_.class_id,
             student_id=student.user_id,
-            current_class=f"{class_.class_name} {class_.section or ''}".strip(),
+            current_class_grade=class_.grade_level,
+            current_class_section=class_.section,
             is_active=True,
+            admission_number=admission_number,
+            parent_name=parent_name.strip() if parent_name else None,
+            parent_phone=parent_phone.strip() if parent_phone else None,
+            fee_status="pending",
         )
         db.add(enrollment)
         db.commit()
@@ -162,21 +197,23 @@ class AdminService:
             first_name=first_name,
             school_name=school.school_name,
             password=raw_password,
-            class_name=f"{class_.class_name} {class_.section or ''}".strip(),
+            grade_level=class_.grade_level,
+            section=class_.section or "",
         )
 
         return {
             "message": "Student registered and enrolled. Login details sent to their email.",
             "student_id": str(student.user_id),
             "email": student.email,
-            "class": f"{class_.class_name} {class_.section or ''}".strip(),
+            "class_grade": class_grade,
+            "section": section,
+            "admission_number": admission_number,
         }
 
     def create_class(
         self,
         db: Session,
         admin: User,
-        class_name: str,
         grade_level: int,
         section: Optional[str] = None,
     ) -> Class:
@@ -184,7 +221,7 @@ class AdminService:
             db.query(Class)
             .filter(
                 Class.school_id == admin.school_id,
-                Class.class_name == class_name.strip(),
+                Class.grade_level == grade_level,
                 Class.section == (section.strip() if section else None),
             )
             .first()
@@ -192,12 +229,11 @@ class AdminService:
         if existing:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"Class '{class_name} {section or ''}' already exists in your school",
+                detail=f"Class '{grade_level} {section or ''}' already exists in your school",
             )
 
         new_class = Class(
             school_id=admin.school_id,
-            class_name=class_name.strip(),
             grade_level=grade_level,
             section=section.strip() if section else None,
         )

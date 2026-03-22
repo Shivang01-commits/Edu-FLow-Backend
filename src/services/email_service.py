@@ -69,7 +69,8 @@ def send_student_welcome_email(
     first_name: str,
     school_name: str,
     password: str,
-    class_name: str,
+    grade_level: int,
+    section: str,  # ← add this
 ) -> None:
     subject = f"Welcome to {APP_NAME} — Your Login Details"
 
@@ -84,7 +85,7 @@ def send_student_welcome_email(
         <p>Hi <strong>{first_name}</strong>,</p>
 
         <p>You have been registered as a student at <strong>{school_name}</strong>.</p>
-        <p>Your class: <strong>{class_name}</strong></p>
+        <p>Your class: <strong>Class {grade_level} — Section {section.upper()}</strong></p>
 
         <div style="background: #F3F4F6; border-radius: 8px; padding: 20px; margin: 24px 0;">
           <p style="margin: 0 0 8px 0; color: #6B7280; font-size: 14px;">YOUR LOGIN DETAILS</p>

@@ -77,7 +77,6 @@ class User(Base):
     date_of_birth = Column(Date, nullable=True)
     phone_number = Column(String, nullable=True)
 
-    # admission_number = Column(String, nullable=True)
     # join_date = Column(String, nullable=True)
     # designation = Column(String, nullable=True)
 
@@ -117,14 +116,14 @@ class Class(Base):
         ForeignKey("schools.school_id", ondelete="CASCADE"),
         nullable=False,
     )
-    class_name = Column(String, nullable=False)
+    # class_name = Column(String, nullable=False)
     grade_level = Column(Integer, nullable=False)
     section = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
 
     __table_args__ = (
         UniqueConstraint(
-            "school_id", "class_name", "section", name="uq_class_school_section"
+            "school_id", "grade_level", "section", name="uq_class_school_section"
         ),
     )
 
@@ -197,9 +196,18 @@ class Enrollment(Base):
         ForeignKey("users.user_id", ondelete="CASCADE"),
         nullable=False,
     )
-    current_class = Column(String, nullable=True)
+
+    current_class_grade = Column(Integer, nullable=True)
+    current_class_section = Column(String, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
     enrollment_date = Column(DateTime(timezone=True), default=utcnow, nullable=False)
+    admission_number = Column(Integer, nullable=True, index=True)
+    parent_name = Column(String, nullable=True)
+    parent_phone = Column(String, nullable=True)
+    # parent_email = Column(String, nullable=True)
+    # guardian_name = Column(String, nullable=True)  # if different from parent
+    # guardian_phone = Column(String, nullable=True)
+    fee_status = Column(String, nullable=False, default="pending")
 
     __table_args__ = (
         UniqueConstraint("class_id", "student_id", name="uq_enrollment_class_student"),
@@ -273,7 +281,7 @@ class ClassChapter(Base):
         nullable=True,
     )
     # chapter_title = Column(String, nullable=True)
-    chapter_number = Column(String, nullable=False)
+    chapter_number = Column(Integer, nullable=False)
 
     subject = Column(String, nullable=False)
 
