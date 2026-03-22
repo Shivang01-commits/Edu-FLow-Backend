@@ -28,7 +28,7 @@ from src.models.books_schema import UpdateBookFieldsRequest
 book_service = BookService()
 chapter_service = ClassChapterService()
 ai_service = BookIngestionService()
-teacher_service=TeacherService()
+teacher_service = TeacherService()
 router = APIRouter(prefix="/books", tags=["Global Books"])
 
 
@@ -81,6 +81,7 @@ async def ingest_book(
     # Step 2 — Save generated content to DB
     book = book_service.create_book(
         db=db,
+        board=board,
         book_name=book_name,
         class_grade=class_grade,
         subject=subject,
@@ -203,8 +204,6 @@ def delete_book(
     current_user: User = Depends(require_role("sudo_admin")),
 ):
     return book_service.delete_book(db, book_id)
-
-
 
 
 # TESTING ROUTES (FOR DEVELOPEMENT PURPOSES ONLY)
@@ -397,5 +396,3 @@ def delete_book(
 #         return {"status": "success", "data": result}
 #     except Exception as e:
 #         return {"status": "error", "message": str(e)}
-
-
