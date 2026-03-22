@@ -214,188 +214,188 @@ def delete_book(
 # Remove or protect these in production
 
 
-@router.post(
-    "/test/extract-text",
-    summary="[DEBUG] Extract text from PDF only — no AI, no DB",
-)
-async def test_extract_text(
-    file: UploadFile = File(...),
-    current_user: User = Depends(require_role("sudo_admin")),
-):
-    os.makedirs("/tmp", exist_ok=True)
-    file_path = f"/tmp/{uuid.uuid4()}.pdf"
+# @router.post(
+#     "/test/extract-text",
+#     summary="[DEBUG] Extract text from PDF only — no AI, no DB",
+# )
+# async def test_extract_text(
+#     file: UploadFile = File(...),
+#     current_user: User = Depends(require_role("sudo_admin")),
+# ):
+#     os.makedirs("/tmp", exist_ok=True)
+#     file_path = f"/tmp/{uuid.uuid4()}.pdf"
 
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+#     with open(file_path, "wb") as buffer:
+#         shutil.copyfileobj(file.file, buffer)
 
-    try:
-        chapter_text = PDFExtractor.extract_text(file_path)
-        return {
-            "status": "success",
-            "text_length": len(chapter_text),
-            "preview": chapter_text[:500],
-            "message": "Text extracted successfully",
-        }
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-
-
-@router.post(
-    "/test/summary",
-    summary="[DEBUG] Generate summary only — no DB save",
-)
-async def test_summary(
-    file: UploadFile = File(...),
-    class_grade: int = Form(...),
-    subject: str = Form(...),
-    chapter_number: int = Form(...),
-    chapter_title: str = Form(...),
-    current_user: User = Depends(require_role("sudo_admin")),
-):
-    os.makedirs("/tmp", exist_ok=True)
-    file_path = f"/tmp/{uuid.uuid4()}.pdf"
-
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    try:
-        chapter_text = PDFExtractor.extract_text(file_path)
-        metadata = {
-            "class_grade": class_grade,
-            "subject": subject,
-            "chapter_number": chapter_number,
-            "chapter_title": chapter_title,
-            "isbn": "",
-        }
-        result = ai_service.generate_summary(chapter_text, metadata)
-        return {"status": "success", "data": result}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
+#     try:
+#         chapter_text = PDFExtractor.extract_text(file_path)
+#         return {
+#             "status": "success",
+#             "text_length": len(chapter_text),
+#             "preview": chapter_text[:500],
+#             "message": "Text extracted successfully",
+#         }
+#     except Exception as e:
+#         return {"status": "error", "message": str(e)}
 
 
-@router.post(
-    "/test/quiz",
-    summary="[DEBUG] Generate quiz from summary — no DB save",
-)
-async def test_quiz(
-    class_grade: int = Form(...),
-    subject: str = Form(...),
-    chapter_number: int = Form(...),
-    chapter_title: str = Form(...),
-    chapter_summary: str = Form(...),
-    current_user: User = Depends(require_role("sudo_admin")),
-):
-    try:
-        metadata = {
-            "class_grade": class_grade,
-            "subject": subject,
-            "chapter_number": chapter_number,
-            "chapter_title": chapter_title,
-            "isbn": "",
-        }
-        result = ai_service.generate_quiz(chapter_summary, metadata)
-        return {"status": "success", "data": result}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
+# @router.post(
+#     "/test/summary",
+#     summary="[DEBUG] Generate summary only — no DB save",
+# )
+# async def test_summary(
+#     file: UploadFile = File(...),
+#     class_grade: int = Form(...),
+#     subject: str = Form(...),
+#     chapter_number: int = Form(...),
+#     chapter_title: str = Form(...),
+#     current_user: User = Depends(require_role("sudo_admin")),
+# ):
+#     os.makedirs("/tmp", exist_ok=True)
+#     file_path = f"/tmp/{uuid.uuid4()}.pdf"
+
+#     with open(file_path, "wb") as buffer:
+#         shutil.copyfileobj(file.file, buffer)
+
+#     try:
+#         chapter_text = PDFExtractor.extract_text(file_path)
+#         metadata = {
+#             "class_grade": class_grade,
+#             "subject": subject,
+#             "chapter_number": chapter_number,
+#             "chapter_title": chapter_title,
+#             "isbn": "",
+#         }
+#         result = ai_service.generate_summary(chapter_text, metadata)
+#         return {"status": "success", "data": result}
+#     except Exception as e:
+#         return {"status": "error", "message": str(e)}
 
 
-@router.post(
-    "/test/ppt",
-    summary="[DEBUG] Generate PPT structure from summary — no DB save",
-)
-async def test_ppt(
-    class_grade: int = Form(...),
-    subject: str = Form(...),
-    chapter_number: int = Form(...),
-    chapter_title: str = Form(...),
-    chapter_summary: str = Form(...),
-    current_user: User = Depends(require_role("sudo_admin")),
-):
-    try:
-        metadata = {
-            "class_grade": class_grade,
-            "subject": subject,
-            "chapter_number": chapter_number,
-            "chapter_title": chapter_title,
-            "isbn": "",
-        }
-        result = ai_service.generate_ppt(chapter_summary, metadata)
-        return {"status": "success", "data": result}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
+# @router.post(
+#     "/test/quiz",
+#     summary="[DEBUG] Generate quiz from summary — no DB save",
+# )
+# async def test_quiz(
+#     class_grade: int = Form(...),
+#     subject: str = Form(...),
+#     chapter_number: int = Form(...),
+#     chapter_title: str = Form(...),
+#     chapter_summary: str = Form(...),
+#     current_user: User = Depends(require_role("sudo_admin")),
+# ):
+#     try:
+#         metadata = {
+#             "class_grade": class_grade,
+#             "subject": subject,
+#             "chapter_number": chapter_number,
+#             "chapter_title": chapter_title,
+#             "isbn": "",
+#         }
+#         result = ai_service.generate_quiz(chapter_summary, metadata)
+#         return {"status": "success", "data": result}
+#     except Exception as e:
+#         return {"status": "error", "message": str(e)}
 
 
-@router.post(
-    "/test/exercise-extraction",
-    summary="[DEBUG] Extract exercises from PDF — no DB save",
-)
-async def test_exercise_extraction(
-    file: UploadFile = File(...),
-    class_grade: int = Form(...),
-    subject: str = Form(...),
-    chapter_number: int = Form(...),
-    chapter_title: str = Form(...),
-    current_user: User = Depends(require_role("sudo_admin")),
-):
-    os.makedirs("/tmp", exist_ok=True)
-    file_path = f"/tmp/{uuid.uuid4()}.pdf"
-
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    try:
-        chapter_text = PDFExtractor.extract_text(file_path)
-        metadata = {
-            "class_grade": class_grade,
-            "subject": subject,
-            "chapter_number": chapter_number,
-            "chapter_title": chapter_title,
-            "isbn": "",
-        }
-        result = ai_service.extract_questions_answers(chapter_text, metadata)
-        return {"status": "success", "data": result}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
+# @router.post(
+#     "/test/ppt",
+#     summary="[DEBUG] Generate PPT structure from summary — no DB save",
+# )
+# async def test_ppt(
+#     class_grade: int = Form(...),
+#     subject: str = Form(...),
+#     chapter_number: int = Form(...),
+#     chapter_title: str = Form(...),
+#     chapter_summary: str = Form(...),
+#     current_user: User = Depends(require_role("sudo_admin")),
+# ):
+#     try:
+#         metadata = {
+#             "class_grade": class_grade,
+#             "subject": subject,
+#             "chapter_number": chapter_number,
+#             "chapter_title": chapter_title,
+#             "isbn": "",
+#         }
+#         result = ai_service.generate_ppt(chapter_summary, metadata)
+#         return {"status": "success", "data": result}
+#     except Exception as e:
+#         return {"status": "error", "message": str(e)}
 
 
-@router.post(
-    "/test/exercise-answering",
-    summary="[DEBUG] Answer extracted exercises — no DB save",
-)
-async def test_exercise_answering(
-    file: UploadFile = File(...),
-    questions_json: str = Form(...),
-    class_grade: int = Form(...),
-    subject: str = Form(...),
-    chapter_number: int = Form(...),
-    chapter_title: str = Form(...),
-    current_user: User = Depends(require_role("sudo_admin")),
-):
-    import json
+# @router.post(
+#     "/test/exercise-extraction",
+#     summary="[DEBUG] Extract exercises from PDF — no DB save",
+# )
+# async def test_exercise_extraction(
+#     file: UploadFile = File(...),
+#     class_grade: int = Form(...),
+#     subject: str = Form(...),
+#     chapter_number: int = Form(...),
+#     chapter_title: str = Form(...),
+#     current_user: User = Depends(require_role("sudo_admin")),
+# ):
+#     os.makedirs("/tmp", exist_ok=True)
+#     file_path = f"/tmp/{uuid.uuid4()}.pdf"
 
-    os.makedirs("/tmp", exist_ok=True)
-    file_path = f"/tmp/{uuid.uuid4()}.pdf"
+#     with open(file_path, "wb") as buffer:
+#         shutil.copyfileobj(file.file, buffer)
 
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+#     try:
+#         chapter_text = PDFExtractor.extract_text(file_path)
+#         metadata = {
+#             "class_grade": class_grade,
+#             "subject": subject,
+#             "chapter_number": chapter_number,
+#             "chapter_title": chapter_title,
+#             "isbn": "",
+#         }
+#         result = ai_service.extract_questions_answers(chapter_text, metadata)
+#         return {"status": "success", "data": result}
+#     except Exception as e:
+#         return {"status": "error", "message": str(e)}
 
-    try:
-        chapter_text = PDFExtractor.extract_text(file_path)
-        questions = json.loads(questions_json)
-        metadata = {
-            "class_grade": class_grade,
-            "subject": subject,
-            "chapter_number": chapter_number,
-            "chapter_title": chapter_title,
-            "isbn": "",
-        }
-        result = ai_service.generate_answers(
-            chapter_text=chapter_text,
-            questions=questions,
-            metadata=metadata,
-        )
-        return {"status": "success", "data": result}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
+
+# @router.post(
+#     "/test/exercise-answering",
+#     summary="[DEBUG] Answer extracted exercises — no DB save",
+# )
+# async def test_exercise_answering(
+#     file: UploadFile = File(...),
+#     questions_json: str = Form(...),
+#     class_grade: int = Form(...),
+#     subject: str = Form(...),
+#     chapter_number: int = Form(...),
+#     chapter_title: str = Form(...),
+#     current_user: User = Depends(require_role("sudo_admin")),
+# ):
+#     import json
+
+#     os.makedirs("/tmp", exist_ok=True)
+#     file_path = f"/tmp/{uuid.uuid4()}.pdf"
+
+#     with open(file_path, "wb") as buffer:
+#         shutil.copyfileobj(file.file, buffer)
+
+#     try:
+#         chapter_text = PDFExtractor.extract_text(file_path)
+#         questions = json.loads(questions_json)
+#         metadata = {
+#             "class_grade": class_grade,
+#             "subject": subject,
+#             "chapter_number": chapter_number,
+#             "chapter_title": chapter_title,
+#             "isbn": "",
+#         }
+#         result = ai_service.generate_answers(
+#             chapter_text=chapter_text,
+#             questions=questions,
+#             metadata=metadata,
+#         )
+#         return {"status": "success", "data": result}
+#     except Exception as e:
+#         return {"status": "error", "message": str(e)}
 
 

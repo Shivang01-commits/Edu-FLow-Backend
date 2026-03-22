@@ -4,8 +4,9 @@ from typing import Optional
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
-from src.db.models import User, UserRole, School
+from src.db.models import User, UserRole, School, Enrollment, Class
 from src.services.db_services.auth_service import hash_password
 from src.services.email_service import send_admin_welcome_email
 from src.services.db_services.admin_service import generate_random_password
@@ -275,11 +276,92 @@ class SudoAdminService:
     # -----------------------------------------------------------------------
     # LIST ALL SCHOOLS
     # -----------------------------------------------------------------------
-    def list_schools(self, db: Session) -> list[School]:
-        return db.query(School).order_by(School.school_name).all()
+
+    def list_schools(self, db: Session) -> list[dict]:
+        schools = db.query(School).order_by(School.school_name).all()
+
+        # count enrolled students per school in one query
+        enrollment_counts = (
+            db.query(
+                Enrollment.school_id,
+                func.count(Enrollment.enrollment_id).label("count"),
+            )
+            .filter(Enrollment.is_active == True)
+            .group_by(Enrollment.school_id)
+            .all()
+        )
+        # build lookup: school_id → student count
+        count_map = {str(e.school_id): e.count for e in enrollment_counts}
+
+        return [
+            {
+                "school_id": str(s.school_id),
+                "school_name": s.school_name,
+                "city": s.city,
+                "state": s.state,
+                "board": s.board,
+                "plan": s.plan,
+                "is_active": s.is_active,
+                "created_at": s.created_at,
+                "stats": {
+                    "students_enrolled": count_map.get(str(s.school_id), 0),
+                },
+            }
+            for s in schools
+        ]
 
     # -----------------------------------------------------------------------
     # GET SCHOOL BY ID
     # -----------------------------------------------------------------------
-    def get_school_by_id(self, db: Session, school_id: uuid.UUID) -> School:
-        return get_school_or_404(db, school_id)
+    def get_school_by_id(self, db: Session, school_id: uuid.UUID) -> dict:
+        school = get_school_or_404(db, school_id)
+
+        # student count
+        student_count = (
+            db.query(func.count(Enrollment.enrollment_id))
+            .filter(
+                Enrollment.school_id == school_id,
+                Enrollment.is_active == True,
+            )
+            .scalar()
+        )
+
+        # teacher count
+        teacher_count = (
+            db.query(func.count(User.user_id))
+            .filter(
+                User.school_id == school_id,
+                User.role == UserRole.teacher,
+                User.is_active == True,
+            )
+            .scalar()
+        )
+
+        # class count
+        class_count = (
+            db.query(func.count(Class.class_id))
+            .filter(Class.school_id == school_id)
+            .scalar()
+        )
+
+        return {
+            "school_id": str(school.school_id),
+            "school_name": school.school_name,
+            "school_address": school.school_address,
+            "city": school.city,
+            "state": school.state,
+            "board": school.board,
+            "affiliation_number": school.affiliation_number,
+            "school_phone": school.school_phone,
+            "admin_email": school.admin_email,
+            "plan": school.plan,
+            "registration_certificate_url": school.registration_certificate_url,
+            "noc_affiliation_url": school.noc_affiliation_url,
+            "is_active": school.is_active,
+            "created_at": school.created_at,
+            "stats": {
+                "students_enrolled": student_count or 0,
+                "teachers": teacher_count or 0,
+                "classes": class_count or 0,
+            },
+        }
