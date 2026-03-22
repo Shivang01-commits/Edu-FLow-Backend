@@ -13,6 +13,7 @@ from sqlalchemy import (
     ForeignKey,
     Enum as SAEnum,
     UniqueConstraint,
+    Numeric,
 )
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
@@ -102,6 +103,9 @@ class User(Base):
     )
     chapters_taught = relationship(
         "ClassChapter", back_populates="teacher", foreign_keys="ClassChapter.teacher_id"
+    )
+    teacher_profile = relationship(
+        "TeacherProfile", back_populates="teacher", uselist=False
     )
 
 
@@ -346,3 +350,36 @@ class Quiz(Base):
     student = relationship(
         "User", back_populates="quiz_attempts", foreign_keys=[student_id]
     )
+
+
+class TeacherProfile(Base):
+    __tablename__ = "teacher_profiles"
+
+    profile_id = Column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False
+    )
+    teacher_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    )
+    school_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("schools.school_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    designation = Column(String, nullable=True)
+    join_date = Column(Date, nullable=True)
+    salary = Column(Numeric(10, 2), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
+    )
+
+    teacher = relationship(
+        "User", back_populates="teacher_profile", foreign_keys=[teacher_id]
+    )
+    school = relationship("School", foreign_keys=[school_id])

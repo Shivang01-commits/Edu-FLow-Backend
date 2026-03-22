@@ -1,26 +1,21 @@
-"""
-admin_service.py
-
-  - Register teacher (random password + welcome email)
-  - Register student (random password + welcome email + enroll in class)
-  - Create class
-  - Assign teacher to class
-  - List teachers, students, classes for their school
-  - Deactivate users
-  - Resend password
-
-"""
-
 import secrets
 import string
 import uuid
 from datetime import date
 from typing import Optional
+from decimal import Decimal
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from src.db.models import User, UserRole, Class, Enrollment, ClassTeacher
+from src.db.models import (
+    User,
+    UserRole,
+    Class,
+    Enrollment,
+    TeacherProfile,
+    ClassTeacher,
+)
 from src.services.db_services.auth_service import hash_password
 from src.services.email_service import (
     send_student_welcome_email,
@@ -32,11 +27,6 @@ from src.utils.db_utils import (
     check_email_unique,
     get_class_or_404,
 )
-
-
-# ===========================================================================
-# Password generator — shared, used by admin_service + sudo_admin_service
-# ===========================================================================
 
 
 def generate_random_password(length: int = 12) -> str:
@@ -59,11 +49,6 @@ def generate_random_password(length: int = 12) -> str:
     return "".join(password)
 
 
-# ===========================================================================
-# AdminService
-# ===========================================================================
-
-
 class AdminService:
     # -----------------------------------------------------------------------
     # REGISTER TEACHER
@@ -76,6 +61,10 @@ class AdminService:
         first_name: str,
         last_name: Optional[str],
         date_of_birth: date,
+        phone_number: Optional[str],
+        designation: str,
+        salary: Decimal,
+        join_date: date,
     ) -> dict:
         check_email_unique(db, email)
 
@@ -89,13 +78,25 @@ class AdminService:
             first_name=first_name.strip(),
             last_name=last_name.strip() if last_name else None,
             date_of_birth=date_of_birth,
+            phone_number=phone_number,
             role=UserRole.teacher,
             is_active=True,
             is_password_changed=False,
         )
         db.add(teacher)
+        db.flush()
+
+        profile = TeacherProfile(
+            teacher_id=teacher.user_id,
+            school_id=admin.school_id,
+            designation=designation.strip(),
+            salary=salary,
+            join_date=join_date,
+        )
+        db.add(profile)
         db.commit()
         db.refresh(teacher)
+        db.refresh(profile)
 
         send_teacher_welcome_email(
             to_email=email,
@@ -108,6 +109,9 @@ class AdminService:
             "message": "Teacher registered. Login details sent to their email.",
             "teacher_id": str(teacher.user_id),
             "email": teacher.email,
+            "designation": profile.designation,
+            "salary": str(profile.salary),
+            "join_date": str(profile.join_date),
         }
 
     def register_student(

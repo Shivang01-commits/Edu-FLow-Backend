@@ -1,7 +1,8 @@
 import uuid
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from datetime import date
 from typing import Optional
+from decimal import Decimal
 
 
 class RegisterTeacherRequest(BaseModel):
@@ -9,6 +10,10 @@ class RegisterTeacherRequest(BaseModel):
     first_name: str
     last_name: Optional[str] = None
     date_of_birth: date
+    designation: str
+    salary: Decimal = Field(..., gt=0, description="The employee's salary")
+    phone_number: str
+    join_date: date
 
 
 class RegisterStudentRequest(BaseModel):

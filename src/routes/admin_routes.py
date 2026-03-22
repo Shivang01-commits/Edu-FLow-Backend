@@ -34,6 +34,10 @@ def register_teacher(
         first_name=data.first_name,
         last_name=data.last_name,
         date_of_birth=data.date_of_birth,
+        designation=data.designation,
+        join_date=data.join_date,
+        salary=data.salary,
+        phone_number=data.phone_number,
     )
 
 
