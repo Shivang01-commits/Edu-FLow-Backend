@@ -329,6 +329,13 @@ class AdminService:
                 "is_active": t.is_active,
                 "is_password_changed": t.is_password_changed,
                 "created_at": t.created_at,
+                "profile": {
+                    "designation": t.teacher_profile.designation,
+                    "salary": str(t.teacher_profile.salary),
+                    "join_date": str(t.teacher_profile.join_date),
+                }
+                if t.teacher_profile
+                else None,
             }
             for t in teachers
         ]
