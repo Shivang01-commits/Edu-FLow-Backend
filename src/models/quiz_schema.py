@@ -1,11 +1,8 @@
-from typing import List
-from pydantic import BaseModel
-
-
-class StudentAnswer(BaseModel):
-    question_number: int
-    selected_option: str
-
+from pydantic import BaseModel,Field
+from typing import Dict, Optional
 
 class SubmitQuizRequest(BaseModel):
-    answers: List[StudentAnswer]
+    student_answers: Dict[str, Optional[str]] = Field(
+        ..., 
+        description="Student answers as dict: {'1': 'A', '2': 'B', ...}. Use null for unanswered questions."
+    )

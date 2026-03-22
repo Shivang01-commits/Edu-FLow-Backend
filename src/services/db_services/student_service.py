@@ -1,9 +1,10 @@
 import uuid
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
-
+import json
+from datetime import datetime
 from src.db.models import User, ClassChapter, ClassTeacher, Enrollment, Quiz,Class,Book
-
+from src.models.quiz_schema import SubmitQuizRequest
 
 class StudentService:
     def get_dashboard(self, db: Session, student: User) -> dict:
@@ -365,4 +366,218 @@ class StudentService:
             "is_customized": is_customized,
             "published_date": class_chapter.published_date,
             content_type: content
+        }    
+    
+
+    def submit_quiz(
+        self,
+        db: Session,
+        student: User,
+        class_chapter_id: uuid.UUID,
+        data: SubmitQuizRequest
+    ) -> dict:
+        
+        # Step 1: Verify student is enrolled in the class
+        class_chapter = (
+            db.query(ClassChapter)
+            .filter(ClassChapter.class_chapter_id == class_chapter_id)
+            .first()
+        )
+        
+        if not class_chapter:
+            raise HTTPException(status_code=404, detail="Chapter not found")
+        
+        enrollment = (
+            db.query(Enrollment)
+            .filter(
+                Enrollment.class_id == class_chapter.class_id,
+                Enrollment.user_id == student.user_id,
+                Enrollment.is_active == True
+            )
+            .first()
+        )
+        
+        if not enrollment:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not enrolled in this class"
+            )
+        
+        # Step 2: Check if student already attempted this quiz
+        existing_attempt = (
+            db.query(Quiz)
+            .filter(
+                Quiz.class_chapter_id == class_chapter_id,
+                Quiz.student_id == student.user_id,
+                Quiz.status == "submitted"
+            )
+            .first()
+        )
+        
+        if existing_attempt:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="You have already submitted this quiz. Only one attempt is allowed."
+            )
+        
+        # Step 3: Get the custom_quiz JSON from ClassChapter
+        custom_quiz = class_chapter.custom_quiz
+        
+        if not custom_quiz:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Quiz is not available for this chapter"
+            )
+        
+        # If custom_quiz is stored as string, parse it
+        if isinstance(custom_quiz, str):
+            custom_quiz = json.loads(custom_quiz)
+        
+        # Step 4: Calculate score by comparing answers
+        score = 0
+        total_questions = len(custom_quiz.get("questions", []))
+        
+        for question in custom_quiz.get("questions", []):
+            question_id = str(question.get("id"))
+            correct_answer = question.get("correct_answer")
+            student_answer = data.student_answers.get(question_id)
+            
+            # If student answered this question, check if correct
+            if student_answer and student_answer == correct_answer:
+                score += 1
+        
+        # Step 5: Calculate percentage and pass/fail
+        percentage = (score / total_questions * 100) if total_questions > 0 else 0
+        pass_fail = "PASS" if percentage >= 40 else "FAIL"
+        
+        # Step 6: Check if there's an existing pending attempt
+        pending_attempt = (
+            db.query(Quiz)
+            .filter(
+                Quiz.class_chapter_id == class_chapter_id,
+                Quiz.student_id == student.user_id,
+                Quiz.status == "pending"
+            )
+            .first()
+        )
+        
+        # Step 7: Create or update Quiz record
+        if pending_attempt:
+            # Update existing pending attempt
+            pending_attempt.response = data.student_answers
+            pending_attempt.score = score
+            pending_attempt.total_questions = total_questions
+            pending_attempt.percentage = percentage
+            pending_attempt.status = "submitted"
+            pending_attempt.submitted_date = datetime.datetime.now()
+            db.commit()
+            quiz_record = pending_attempt
+        else:
+            # Create new Quiz record
+            quiz_record = Quiz(
+                school_id=class_chapter.school_id,
+                class_chapter_id=class_chapter_id,
+                student_id=student.user_id,
+                response=data.student_answers,
+                score=score,
+                total_questions=total_questions,
+                percentage=percentage,
+                status="submitted",
+                submitted_date=datetime.datetime.now()
+            )
+            db.add(quiz_record)
+            db.commit()
+        
+        db.refresh(quiz_record)
+        
+        return {
+            "message": "Quiz submitted successfully",
+            "quiz_attempt_id": str(quiz_record.quiz_attempt_id),
+            "score": score,
+            "total_questions": total_questions,
+            "percentage": round(percentage, 2),
+            "status": "submitted"
+        }
+        
+
+    def view_quiz_results(
+        self,
+        db: Session,
+        student: User,
+        quiz_attempt_id: uuid.UUID
+    ) -> dict:
+        import json
+        
+        # Step 1: Get Quiz record
+        quiz_record = (
+            db.query(Quiz)
+            .filter(Quiz.quiz_attempt_id == quiz_attempt_id)
+            .first()
+        )
+        
+        if not quiz_record:
+            raise HTTPException(status_code=404, detail="Quiz attempt not found")
+        
+        # Step 2: Verify student owns this quiz attempt
+        if quiz_record.student_id != student.user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to view this quiz result"
+            )
+        
+        # Step 3: Get ClassChapter to fetch custom_quiz JSON
+        class_chapter = (
+            db.query(ClassChapter)
+            .filter(ClassChapter.class_chapter_id == quiz_record.class_chapter_id)
+            .first()
+        )
+        
+        if not class_chapter:
+            raise HTTPException(status_code=404, detail="Chapter not found")
+        
+        custom_quiz = class_chapter.custom_quiz
+        
+        if isinstance(custom_quiz, str):
+            custom_quiz = json.loads(custom_quiz)
+        
+        # Step 4: Get student's answers from response field
+        student_answers = quiz_record.response
+        
+        if isinstance(student_answers, str):
+            student_answers = json.loads(student_answers)
+        
+        # Step 5: Build detailed question breakdown (on-the-fly comparison)
+        questions_breakdown = []
+        
+        for question in custom_quiz.get("questions", []):
+            question_id = str(question.get("id"))
+            question_text = question.get("question_text")
+            options = question.get("options", {})
+            correct_answer = question.get("correct_answer")
+            explanation = question.get("explanation")
+            
+            student_answer = student_answers.get(question_id)
+            is_correct = student_answer == correct_answer if student_answer else False
+            
+            questions_breakdown.append({
+                "id": question.get("id"),
+                "question_text": question_text,
+                "options": options,
+                "student_answer": student_answer,
+                "correct_answer": correct_answer,
+                "is_correct": is_correct,
+                "explanation": explanation
+            })
+        
+        # Step 6: Determine pass/fail
+        pass_fail = "PASS" if quiz_record.percentage >= 40 else "FAIL"
+        
+        return {
+            "quiz_attempt_id": str(quiz_record.quiz_attempt_id),
+            "score": quiz_record.score,
+            "total_questions": quiz_record.total_questions,
+            "percentage": quiz_record.percentage,
+            "pass_fail": pass_fail,
+            "submitted_date": quiz_record.submitted_date,
+            "questions": questions_breakdown
         }    

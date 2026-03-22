@@ -4,6 +4,7 @@ import uuid
 from src.db.main import get_db
 from src.db.models import User
 from src.services.db_services.student_service import StudentService
+from src.models.quiz_schema import SubmitQuizRequest
 from src.utils.jwt_handler import require_role
 
 router = APIRouter(prefix="/student", tags=["Student"])
@@ -110,3 +111,36 @@ def get_student_chapter_content(
     return student_service.get_student_chapter_content(
         db, current_user, class_chapter_id, content_type
     )
+
+@router.post(
+    "/quiz/{class_chapter_id}/submit",
+    summary="Submit quiz answers [student only]",
+    description=(
+        "Student submits their quiz answers. "
+        "Calculates score and percentage automatically. "
+        "Only one attempt per quiz allowed."
+    ),
+)
+def submit_quiz(
+    class_chapter_id: uuid.UUID,
+    data: SubmitQuizRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("student")),
+):
+    return student_service.submit_quiz(db, current_user, class_chapter_id, data)    
+
+
+@router.get(
+    "/quiz-attempts/{quiz_attempt_id}",
+    summary="View quiz results with detailed breakdown [student only]",
+    description=(
+        "View submitted quiz results with score, percentage, pass/fail, "
+        "and detailed question-by-question breakdown showing correct/incorrect answers."
+    ),
+)
+def view_quiz_results(
+    quiz_attempt_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("student")),
+):
+    return student_service.view_quiz_results(db, current_user, quiz_attempt_id)
