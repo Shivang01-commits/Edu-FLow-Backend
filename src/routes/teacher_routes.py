@@ -17,7 +17,7 @@ from src.db.main import get_db
 from src.db.models import User
 from src.services.db_services.teacher_service import TeacherService
 from src.utils.jwt_handler import require_role
-from src.models.books_schema import EditChapterContentRequest,PublishContentRequest
+from src.models.books_schema import EditChapterContentRequest,PublishContentRequest,GetChapterContentRequest
 
 
 router = APIRouter(prefix="/teacher", tags=["Teacher"])
@@ -119,3 +119,22 @@ def publish_chapter_content(
     current_user: User = Depends(require_role("teacher")),
 ):
     return teacher_service.publish_chapter_content(db, current_user, data)
+
+
+@router.get(
+    "/get-content",
+    summary="Get chapter content from global books [teacher only]",
+    description=(
+        "Fetch summary, quiz, qa_bank, or ppt_structure from global Books table. "
+        "Used by 'Generate Summary/Quiz/etc' buttons. "
+        "Returns content that teacher can edit and then publish to their class."
+    ),
+)
+def get_chapter_content(
+    data:GetChapterContentRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("teacher")),
+):
+    return teacher_service.get_chapter_content(
+        db, data.book_name, data.class_grade, data.subject, data.chapter_number, data.content_type
+    )
