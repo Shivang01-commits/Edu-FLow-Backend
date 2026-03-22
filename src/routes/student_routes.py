@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-
+import uuid
 from src.db.main import get_db
 from src.db.models import User
 from src.services.db_services.student_service import StudentService
@@ -56,3 +56,57 @@ def get_quiz_history(
     current_user: User = Depends(require_role("student")),
 ):
     return student_service.get_quiz_history(db, current_user)
+
+
+@router.get(
+    "/classes/{class_id}/subjects",
+    summary="Get list of subjects for a class [student only]",
+    description=(
+        "Returns all subjects taught in this class. "
+        "Used to populate subject filter dropdown."
+    ),
+)
+def get_class_subjects(
+    class_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("student")),
+):
+    return student_service.get_class_subjects(db, current_user, class_id)
+
+
+@router.get(
+    "/classes/{class_id}/published-content",
+    summary="Get published content list by subject and type [student only]",
+    description=(
+        "Returns list of chapters with published summaries, quizzes, qa_banks, or ppt_structures "
+        "for a specific subject in the student's class."
+    ),
+)
+def get_published_content_for_subject(
+    class_id: uuid.UUID,
+    subject: str,
+    content_type: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("student")),
+):
+    return student_service.get_published_content_for_subject(
+        db, current_user, class_id, subject, content_type
+    )
+
+@router.get(
+    "/class-chapters/{class_chapter_id}/content",
+    summary="Get published content (summary/quiz/etc) [student only]",
+    description=(
+        "Returns the actual content (summary, quiz, qa_bank, or ppt_structure) "
+        "for a published chapter. Student must be enrolled in the class."
+    ),
+)
+def get_student_chapter_content(
+    class_chapter_id: uuid.UUID,
+    content_type: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("student")),
+):
+    return student_service.get_student_chapter_content(
+        db, current_user, class_chapter_id, content_type
+    )

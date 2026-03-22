@@ -437,3 +437,68 @@ class TeacherService:
             "content_type": data.content_type,
             "published_date": class_chapter.published_date,
         }
+
+
+    def get_published_content_list(
+        self,
+        db: Session,
+        teacher: User,
+        class_id: uuid.UUID,
+        content_type: str
+    ) -> dict:
+        from sqlalchemy import and_
+        
+        # Step 1: Validate content_type
+        allowed_types = {"summary", "quiz", "qa_bank", "ppt_structure"}
+        if content_type not in allowed_types:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid content_type. Allowed: {allowed_types}"
+            )
+        
+        # Step 2: Verify teacher is assigned to this class
+        assignment = self._get_assignment_or_403(db, teacher.user_id, class_id)
+        
+        # Step 3: Get class info
+        class_ = db.query(Class).filter(Class.class_id == class_id).first()
+        if not class_:
+            raise HTTPException(status_code=404, detail="Class not found")
+        
+        # Step 4: Build the override flag column name
+        override_flag = f"is_{content_type}_overridden"
+        
+        # Step 5: Query ClassChapter records where this content type is published
+        chapters = (
+            db.query(ClassChapter)
+            .filter(
+                ClassChapter.class_id == class_id,
+                ClassChapter.teacher_id == teacher.user_id,
+                ClassChapter.published_date.isnot(None),
+                getattr(ClassChapter, override_flag) == True
+            )
+            .order_by(ClassChapter.published_date.desc())
+            .all()
+        )
+        
+        # Step 6: Build response
+        content_list = []
+        for ch in chapters:
+            book = db.query(Book).filter(Book.book_id == ch.book_id).first()
+            content_list.append(
+                {
+                    "class_chapter_id": str(ch.class_chapter_id),
+                    "book_name": book.book_name if book else None,
+                    "chapter_number": ch.chapter_number,
+                    "published_date": ch.published_date,
+                    "is_overridden": getattr(ch, override_flag),
+                }
+            )
+        
+        return {
+            "class_id": str(class_id),
+            "class_name": class_.class_name,
+            "subject": assignment.subject,
+            "content_type": content_type,
+            "total_published": len(content_list),
+            "published_content": content_list,
+        }
