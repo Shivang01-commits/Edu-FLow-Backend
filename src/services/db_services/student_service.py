@@ -2,7 +2,7 @@ import uuid
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
-from src.db.models import User, ClassChapter, ClassTeacher, Enrollment, Quiz
+from src.db.models import User, ClassChapter, ClassTeacher, Enrollment, Quiz,Class,Book
 
 
 class StudentService:
@@ -161,3 +161,208 @@ class StudentService:
                 detail="No active enrollment found for this student",
             )
         return enrollment
+
+
+    def get_class_subjects(
+        self,
+        db: Session,
+        student: User,
+        class_id: uuid.UUID
+    ) -> dict:
+        
+        # Step 1: Verify student is enrolled in this class
+        enrollment = (
+            db.query(Enrollment)
+            .filter(
+                Enrollment.class_id == class_id,
+                Enrollment.user_id == student.user_id,
+                Enrollment.is_active == True
+            )
+            .first()
+        )
+        
+        if not enrollment:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not enrolled in this class"
+            )
+        
+        # Step 2: Get class info
+        class_ = db.query(Class).filter(Class.class_id == class_id).first()
+        if not class_:
+            raise HTTPException(status_code=404, detail="Class not found")
+        
+        # Step 3: Get all distinct subjects with published content in this class
+        subjects = (
+            db.query(ClassChapter.subject)
+            .filter(
+                ClassChapter.class_id == class_id,
+                ClassChapter.published_date.isnot(None)
+            )
+            .distinct()
+            .order_by(ClassChapter.subject)
+            .all()
+        )
+        
+        return {
+            "class_id": str(class_id),
+            "class_name": class_.class_name,
+            "subjects": [s[0] for s in subjects]
+        }
+
+
+    def get_published_content_for_subject(
+        self,
+        db: Session,
+        student: User,
+        class_id: uuid.UUID,
+        subject: str,
+        content_type: str
+    ) -> dict:
+        
+        # Step 1: Validate content_type
+        allowed_types = {"summary", "quiz", "qa_bank", "ppt_structure"}
+        if content_type not in allowed_types:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid content_type. Allowed: {allowed_types}"
+            )
+        
+        # Step 2: Verify student is enrolled in this class
+        enrollment = (
+            db.query(Enrollment)
+            .filter(
+                Enrollment.class_id == class_id,
+                Enrollment.user_id == student.user_id,
+                Enrollment.is_active == True
+            )
+            .first()
+        )
+        
+        if not enrollment:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not enrolled in this class"
+            )
+        
+        # Step 3: Get class info
+        class_ = db.query(Class).filter(Class.class_id == class_id).first()
+        if not class_:
+            raise HTTPException(status_code=404, detail="Class not found")
+        
+        # Step 4: Build the override flag column name
+        override_flag = f"is_{content_type}_overridden"
+        
+        # Step 5: Query ClassChapter records where this content is published
+        chapters = (
+            db.query(ClassChapter)
+            .filter(
+                ClassChapter.class_id == class_id,
+                ClassChapter.subject == subject.lower().strip(),
+                ClassChapter.published_date.isnot(None),
+                getattr(ClassChapter, override_flag) == True
+            )
+            .order_by(ClassChapter.chapter_number)
+            .all()
+        )
+        
+        # Step 6: Build response
+        content_list = []
+        for ch in chapters:
+            content_list.append(
+                {
+                    "class_chapter_id": str(ch.class_chapter_id),
+                    "chapter_number": ch.chapter_number,
+                    "published_date": ch.published_date,
+                }
+            )
+        
+        return {
+            "class_id": str(class_id),
+            "class_name": class_.class_name,
+            "subject": subject,
+            "content_type": content_type,
+            "total_published": len(content_list),
+            "chapters": content_list,
+        }
+        
+    def get_student_chapter_content(
+        self,
+        db: Session,
+        student: User,
+        class_chapter_id: uuid.UUID,
+        content_type: str
+    ) -> dict:
+        
+        # Step 1: Validate content_type
+        allowed_types = {"summary", "quiz", "qa_bank", "ppt_structure"}
+        if content_type not in allowed_types:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid content_type. Allowed: {allowed_types}"
+            )
+        
+        # Step 2: Get ClassChapter record
+        class_chapter = (
+            db.query(ClassChapter)
+            .filter(ClassChapter.class_chapter_id == class_chapter_id)
+            .first()
+        )
+        
+        if not class_chapter:
+            raise HTTPException(status_code=404, detail="Chapter not found")
+        
+        # Step 3: Verify student is enrolled in this class
+        enrollment = (
+            db.query(Enrollment)
+            .filter(
+                Enrollment.class_id == class_chapter.class_id,
+                Enrollment.user_id == student.user_id,
+                Enrollment.is_active == True
+            )
+            .first()
+        )
+        
+        if not enrollment:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not enrolled in this class"
+            )
+        
+        # Step 4: Verify chapter is published
+        if class_chapter.published_date is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This chapter has not been published yet"
+            )
+        
+        # Step 5: Get the content (custom if exists, else from Book)
+        content_field = f"custom_{content_type}"
+        custom_content = getattr(class_chapter, content_field)
+        
+        if custom_content:
+            # Teacher customized this content
+            content = custom_content
+            is_customized = True
+        else:
+            # Use global book content
+            book = db.query(Book).filter(Book.book_id == class_chapter.book_id).first()
+            if not book:
+                raise HTTPException(status_code=404, detail="Book not found")
+            
+            content = getattr(book, content_type)
+            is_customized = False
+        
+        # Step 6: Get book info for context
+        book = db.query(Book).filter(Book.book_id == class_chapter.book_id).first()
+        
+        return {
+            "class_chapter_id": str(class_chapter_id),
+            "book_name": book.book_name if book else None,
+            "chapter_number": class_chapter.chapter_number,
+            "subject": class_chapter.subject,
+            "content_type": content_type,
+            "is_customized": is_customized,
+            "published_date": class_chapter.published_date,
+            content_type: content
+        }    

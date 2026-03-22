@@ -138,3 +138,24 @@ def get_chapter_content(
     return teacher_service.get_chapter_content(
         db, data.book_name, data.class_grade, data.subject, data.chapter_number, data.content_type
     )
+
+@router.get(
+    "/classes/{class_id}/published-content",
+    summary="Get published content list for a class [teacher only]",
+    description=(
+        "Returns list of published summaries, quizzes, qa_banks, or ppt_structures "
+        "that the teacher has published to a specific class."
+    ),
+)
+def get_published_content_list(
+    class_id: uuid.UUID,
+    content_type: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("teacher")),
+):
+    return teacher_service.get_published_content_list(
+        db, current_user, class_id, content_type
+    )
+
+
+
