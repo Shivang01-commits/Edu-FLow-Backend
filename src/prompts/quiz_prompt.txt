@@ -11,7 +11,7 @@ Return ONLY a valid JSON object with this exact structure:
 {{
   "questions": [
     {{
-      "id": 1,
+      "id": "1",
       "question_text": "question here",
       "options": {{
         "A": "option A",
@@ -23,7 +23,7 @@ Return ONLY a valid JSON object with this exact structure:
       "explanation": "1-2 line explanation of why this is correct"
     }},
     {{
-      "id": 2,
+      "id": "2",
       "question_text": "question here",
       "options": {{
         "A": "option A",
@@ -120,7 +120,7 @@ EXAMPLE MATHEMATICS QUESTIONS:
 ---
 
 COMMON INSTRUCTIONS (ALL SUBJECTS):
-===================================
+===================================str
 
 1. QUESTION GENERATION:
    - Create exactly 10 multiple-choice questions

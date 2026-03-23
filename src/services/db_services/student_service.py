@@ -434,9 +434,11 @@ class StudentService:
 
         # Step 4: Calculate score by comparing answers
         score = 0
-        total_questions = len(custom_quiz.get("questions", []))
+        questions = custom_quiz.get("quiz", {}).get("questions", [])
 
-        for question in custom_quiz.get("questions", []):
+        total_questions = len(questions)
+
+        for question in questions:
             question_id = str(question.get("id"))
             correct_answer = question.get("correct_answer")
             student_answer = data.student_answers.get(question_id)
@@ -542,7 +544,9 @@ class StudentService:
         # Step 5: Build detailed question breakdown (on-the-fly comparison)
         questions_breakdown = []
 
-        for question in custom_quiz.get("questions", []):
+        questions = custom_quiz.get("quiz", {}).get("questions", [])
+
+        for question in questions:
             question_id = str(question.get("id"))
             question_text = question.get("question_text")
             options = question.get("options", {})
