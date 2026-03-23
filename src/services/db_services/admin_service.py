@@ -4,8 +4,11 @@ import uuid
 from datetime import date
 from typing import Optional
 from decimal import Decimal
-
-from fastapi import HTTPException, status
+import openpyxl
+import csv
+import io
+from datetime import datetime
+from fastapi import HTTPException, status,File,UploadFile
 from sqlalchemy.orm import Session
 
 from src.db.models import (
@@ -673,3 +676,269 @@ class AdminService:
         return {
             "message": f"Class '{class_.grade_level} {class_.section or ''}' deleted successfully."
         }
+
+
+
+    def _validate_and_map_columns(self, headers: List[str]) -> dict:
+        """
+        Validate column headers and return mapping of expected columns to their indices.
+        Flexible matching: case-insensitive, ignores extra columns.
+        """
+        
+        # Expected columns (order matters for our current code)
+        expected_columns = {
+            'admission_number': ['admission number', 'admission no', 'admission_number'],
+            'first_name': ['first name', 'first_name', 'firstname'],
+            'last_name': ['last name', 'last_name', 'lastname'],
+            'date_of_birth': ['date of birth', 'dob', 'date_of_birth', 'date'],
+            'email': ['email', 'email address', 'email_address'],
+            'parent_name': ['parent name', 'parent_name', 'guardian name', 'guardian_name'],
+            'parent_phone': ['parent phone', 'parent_phone', 'phone', 'contact'],
+            'class_grade': ['class', 'grade', 'class grade', 'class_grade'],
+            'section': ['section', 'class section', 'class_section']
+        }
+        
+        # Convert headers to lowercase for matching
+        headers_lower = [h.lower().strip() if h else '' for h in headers]
+        
+        # Create mapping: expected_col -> actual_index
+        column_mapping = {}
+        matched_cols = set()
+        
+        for expected_col, variants in expected_columns.items():
+            for idx, header in enumerate(headers_lower):
+                if header in variants and idx not in matched_cols:
+                    column_mapping[expected_col] = idx
+                    matched_cols.add(idx)
+                    break
+        
+        # Check if all required columns are found
+        required_cols = ['first_name', 'email', 'class_grade', 'section']
+        missing_cols = [col for col in required_cols if col not in column_mapping]
+        
+        if missing_cols:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Missing required columns: {', '.join(missing_cols)}"
+            )
+        
+        return column_mapping
+
+
+
+
+    async def bulk_enroll_students(
+        self,
+        db: Session,
+        admin: User,
+        file: UploadFile
+    ) -> dict:
+        
+        # Step 1: Validate file type
+        if file.filename.endswith('.xlsx'):
+            file_type = 'xlsx'
+        elif file.filename.endswith('.csv'):
+            file_type = 'csv'
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="File must be .xlsx or .csv"
+            )
+        
+        # Step 2: Read file content
+        content = await file.read()
+                
+        # Step 3: Parse file and validate columns
+        rows = []
+        column_mapping = None
+
+        if file_type == 'xlsx':
+            workbook = openpyxl.load_workbook(io.BytesIO(content))
+            worksheet = workbook.active
+            
+            # Get headers from first row
+            headers = [cell.value for cell in worksheet[1]]
+            column_mapping = self._validate_and_map_columns(headers)
+            
+            # Parse data rows
+            for row_num, row in enumerate(worksheet.iter_rows(min_row=2, values_only=True), start=2):
+                rows.append({
+                    'row_number': row_num,
+                    'admission_number': row[column_mapping.get('admission_number')],
+                    'first_name': row[column_mapping.get('first_name')],
+                    'last_name': row[column_mapping.get('last_name')],
+                    'date_of_birth': row[column_mapping.get('date_of_birth')],
+                    'email': row[column_mapping.get('email')],
+                    'parent_name': row[column_mapping.get('parent_name')],
+                    'parent_phone': row[column_mapping.get('parent_phone')],
+                    'class_grade': row[column_mapping.get('class_grade')],
+                    'section': row[column_mapping.get('section')]
+                })
+
+        else:  # CSV
+            content_str = content.decode('utf-8')
+            reader = csv.reader(io.StringIO(content_str))
+            
+            # Get headers from first row
+            headers = next(reader)
+            column_mapping = self._validate_and_map_columns(headers)
+            
+            # Parse data rows
+            for row_num, row in enumerate(reader, start=2):
+                rows.append({
+                    'row_number': row_num,
+                    'admission_number': row[column_mapping.get('admission_number')] if column_mapping.get('admission_number') < len(row) else None,
+                    'first_name': row[column_mapping.get('first_name')] if column_mapping.get('first_name') < len(row) else None,
+                    'last_name': row[column_mapping.get('last_name')] if column_mapping.get('last_name') < len(row) else None,
+                    'date_of_birth': row[column_mapping.get('date_of_birth')] if column_mapping.get('date_of_birth') < len(row) else None,
+                    'email': row[column_mapping.get('email')] if column_mapping.get('email') < len(row) else None,
+                    'parent_name': row[column_mapping.get('parent_name')] if column_mapping.get('parent_name') < len(row) else None,
+                    'parent_phone': row[column_mapping.get('parent_phone')] if column_mapping.get('parent_phone') < len(row) else None,
+                    'class_grade': row[column_mapping.get('class_grade')] if column_mapping.get('class_grade') < len(row) else None,
+                    'section': row[column_mapping.get('section')] if column_mapping.get('section') < len(row) else None
+                })        
+
+        # Step 4: Validate all rows first
+        failed_rows = []
+        skipped_rows = []
+        valid_rows = []
+        
+        for row in rows:
+            error = None
+            
+            # Check required fields
+            if not row['first_name'] or not row['email'] or not row['class_grade'] or not row['section']:
+                error = "Missing required fields"
+            
+            # Check email format
+            elif not self._is_valid_email(row['email']):
+                error = "Invalid email format"
+            
+            # Check DOB format (dd-mm-yyyy)
+            elif not self._is_valid_dob(row['date_of_birth']):
+                error = "Invalid DOB format (use dd-mm-yyyy)"
+            
+            # Check if email already enrolled
+            elif self._email_already_enrolled(db, row['email']):
+                skipped_rows.append({
+                    'row_number': row['row_number'],
+                    'email': row['email'],
+                    'reason': 'Email already enrolled'
+                })
+                continue
+            
+            # Check if admission_number already enrolled
+            elif row['admission_number'] and self._admission_number_already_enrolled(db, row['admission_number']):
+                skipped_rows.append({
+                    'row_number': row['row_number'],
+                    'admission_number': row['admission_number'],
+                    'reason': 'Admission number already enrolled'
+                })
+                continue
+            
+            # Check if class+section exists
+            elif not self._class_section_exists(db, row['class_grade'], row['section']):
+                error = f"Class {row['class_grade']} Section {row['section']} does not exist"
+            
+            if error:
+                failed_rows.append({
+                    'row_number': row['row_number'],
+                    'reason': error
+                })
+            else:
+                valid_rows.append(row)
+        
+        # Step 5: If there are failed rows, return validation failure
+        if failed_rows:
+            return {
+                'status': 'validation_failed',
+                'total_rows': len(rows),
+                'enrolled_count': 0,
+                'skipped_count': len(skipped_rows),
+                'failed_count': len(failed_rows),
+                'skipped_rows': skipped_rows,
+                'failed_rows': failed_rows
+            }
+        
+        # Step 6: Enroll all valid rows
+        enrolled_count = 0
+        
+        for row in valid_rows:
+            try:
+                # Call existing register_student method for each valid row
+                self.register_student(
+                    db=db,
+                    admin=admin,
+                    email=row['email'],
+                    first_name=row['first_name'],
+                    last_name=row['last_name'],
+                    date_of_birth=self._parse_dob(row['date_of_birth']),
+                    class_grade=row['class_grade'],
+                    section=row['section'],
+                    admission_number=row['admission_number'],
+                    parent_name=row['parent_name'],
+                    parent_phone=row['parent_phone']
+                )
+                enrolled_count += 1
+            except Exception as e:
+                # If enrollment fails, add to failed rows
+                failed_rows.append({
+                    'row_number': row['row_number'],
+                    'reason': str(e)
+                })
+        
+        return {
+            'status': 'success',
+            'total_rows': len(rows),
+            'enrolled_count': enrolled_count,
+            'skipped_count': len(skipped_rows),
+            'failed_count': len(failed_rows),
+            'skipped_rows': skipped_rows,
+            'failed_rows': failed_rows
+        }
+
+
+    # Helper methods
+    def _is_valid_email(self, email: str) -> bool:
+        import re
+        pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        return re.match(pattern, email) is not None
+
+    def _is_valid_dob(self, dob) -> bool:
+        if dob is None:
+            return False
+        try:
+            if isinstance(dob, str):
+                datetime.strptime(dob, '%d-%m-%Y')
+            return True
+        except:
+            return False
+
+    def _parse_dob(self, dob) -> datetime:
+        if isinstance(dob, str):
+            return datetime.strptime(dob, '%d-%m-%Y').date()
+        return dob
+
+    def _email_already_enrolled(self, db: Session, email: str) -> bool:
+        from src.db.models import User, Enrollment
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            return False
+        enrollment = db.query(Enrollment).filter(
+            Enrollment.user_id == user.user_id,
+            Enrollment.is_active == True
+        ).first()
+        return enrollment is not None
+
+    def _admission_number_already_enrolled(self, db: Session, admission_number: int) -> bool:
+        from src.db.models import User
+        user = db.query(User).filter(User.admission_number == admission_number).first()
+        return user is not None
+
+    def _class_section_exists(self, db: Session, class_grade: int, section: str) -> bool:
+        from src.db.models import Class
+        class_record = db.query(Class).filter(
+            Class.grade_level == class_grade,
+            Class.section == section.upper()
+        ).first()
+        return class_record is not None

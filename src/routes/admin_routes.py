@@ -1,5 +1,5 @@
 import uuid
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends,UploadFile,File
 from sqlalchemy.orm import Session
 from src.db.main import get_db
 from src.db.models import User
@@ -259,3 +259,20 @@ def delete_class(
     current_user: User = Depends(require_role("admin")),
 ):
     return admin_service.delete_class(db, current_user, class_id)
+
+@router.post(
+    "/students/bulk-enroll",
+    status_code=200,
+    summary="Bulk enroll students from Excel/CSV file [admin only]",
+    description=(
+        "Upload Excel or CSV file with student data to enroll multiple students at once. "
+        "Validates all rows first, then enrolls if no errors. "
+        "Returns summary with enrolled count, skipped rows, and failed rows."
+    ),
+)
+async def bulk_enroll_students(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+):
+    return await admin_service.bulk_enroll_students(db, current_user, file)
