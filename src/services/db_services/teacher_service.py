@@ -247,7 +247,7 @@ class TeacherService:
             "class_grade": book.class_grade,
             "subject": book.subject,
             "content_type": content_type,
-            content_type: getattr(book, content_type),  # Get the column dynamically
+            "content": getattr(book, content_type),  # Get the column dynamically
         }
 
     # edit chapter content ----------------------- ----------------------
