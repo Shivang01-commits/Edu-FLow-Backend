@@ -49,6 +49,6 @@ app.include_router(student_router)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 
-@app.get("/", tags=["Health"])
+@app.api_route("/", methods=["GET", "HEAD"], tags=["Health"])
 def root():
     return {"message": "Backend running successfully"}
