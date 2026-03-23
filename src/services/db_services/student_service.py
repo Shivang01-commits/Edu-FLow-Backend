@@ -390,7 +390,7 @@ class StudentService:
             db.query(Enrollment)
             .filter(
                 Enrollment.class_id == class_chapter.class_id,
-                Enrollment.user_id == student.user_id,
+                Enrollment.student_id == student.user_id,
                 Enrollment.is_active == True,
             )
             .first()
