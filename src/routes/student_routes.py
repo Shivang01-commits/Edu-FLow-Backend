@@ -94,6 +94,7 @@ def get_published_content_for_subject(
         db, current_user, class_id, subject, content_type
     )
 
+
 @router.get(
     "/class-chapters/{class_chapter_id}/content",
     summary="Get published content (summary/quiz/etc) [student only]",
@@ -112,6 +113,7 @@ def get_student_chapter_content(
         db, current_user, class_chapter_id, content_type
     )
 
+
 @router.post(
     "/quiz/{class_chapter_id}/submit",
     summary="Submit quiz answers [student only]",
@@ -127,7 +129,7 @@ def submit_quiz(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("student")),
 ):
-    return student_service.submit_quiz(db, current_user, class_chapter_id, data)    
+    return student_service.submit_quiz(db, current_user, class_chapter_id, data)
 
 
 @router.get(
