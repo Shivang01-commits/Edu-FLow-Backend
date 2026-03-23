@@ -683,12 +683,13 @@ class AdminService:
         Flexible matching: case-insensitive, ignores extra columns.
         """
 
-        # Expected columns (order matters for our current code)
+        # Expected columns with all possible variants
         expected_columns = {
             "admission_number": [
                 "admission number",
                 "admission no",
                 "admission_number",
+                "admission#",
             ],
             "first_name": ["first name", "first_name", "firstname"],
             "last_name": ["last name", "last_name", "lastname"],
@@ -700,13 +701,21 @@ class AdminService:
                 "guardian name",
                 "guardian_name",
             ],
-            "parent_phone": ["parent phone", "parent_phone", "phone", "contact"],
-            "class_grade": ["class", "grade", "class grade", "class_grade"],
+            "parent_phone": [
+                "parent phone",
+                "parent_phone",
+                "phone",
+                "contact",
+                "mobile",
+            ],
+            "class_grade": ["class grade", "class_grade", "class", "grade"],
             "section": ["section", "class section", "class_section"],
         }
 
-        # Convert headers to lowercase for matching
+        # Convert headers to lowercase and strip whitespace
         headers_lower = [h.lower().strip() if h else "" for h in headers]
+
+        print(f"DEBUG: Headers found: {headers_lower}")  # Debug line
 
         # Create mapping: expected_col -> actual_index
         column_mapping = {}
@@ -714,19 +723,26 @@ class AdminService:
 
         for expected_col, variants in expected_columns.items():
             for idx, header in enumerate(headers_lower):
+                # Exact match in variants list
                 if header in variants and idx not in matched_cols:
                     column_mapping[expected_col] = idx
                     matched_cols.add(idx)
+                    print(
+                        f"DEBUG: Matched '{expected_col}' to index {idx} (header: '{header}')"
+                    )  # Debug
                     break
 
         # Check if all required columns are found
         required_cols = ["first_name", "email", "class_grade", "section"]
         missing_cols = [col for col in required_cols if col not in column_mapping]
 
+        print(f"DEBUG: Column mapping: {column_mapping}")  # Debug
+        print(f"DEBUG: Missing cols: {missing_cols}")  # Debug
+
         if missing_cols:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Missing required columns: {', '.join(missing_cols)}",
+                detail=f"Missing required columns: {', '.join(missing_cols)}. Found columns: {', '.join(headers_lower)}",
             )
 
         return column_mapping
@@ -861,7 +877,7 @@ class AdminService:
 
             # Check if admission_number already enrolled
             elif row["admission_number"] and self._admission_number_already_enrolled(
-                db, row["admission_number"]
+                db, admin, row["admission_number"]
             ):
                 skipped_rows.append(
                     {
@@ -957,18 +973,35 @@ class AdminService:
             return False
         enrollment = (
             db.query(Enrollment)
-            .filter(Enrollment.user_id == user.user_id, Enrollment.is_active == True)
+            .filter(Enrollment.student_id == user.user_id, Enrollment.is_active == True)
             .first()
         )
         return enrollment is not None
 
     def _admission_number_already_enrolled(
-        self, db: Session, admission_number: int
+        self, db: Session, admin: User, admission_number: int
     ) -> bool:
-        from src.db.models import User
+        # Step 1: Get admin's school_id
+        admin_school_id = admin.school_id
 
-        user = db.query(User).filter(User.admission_number == admission_number).first()
-        return user is not None
+        if not admin_school_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Admin is not associated with any school",
+            )
+
+        # Step 2: Check if admission_number exists in this school's enrollments
+        enrollment = (
+            db.query(Enrollment)
+            .filter(
+                Enrollment.admission_number == admission_number,
+                Enrollment.school_id == admin_school_id,
+                Enrollment.is_active == True,
+            )
+            .first()
+        )
+
+        return enrollment is not None
 
     def _class_section_exists(
         self, db: Session, class_grade: int, section: str
