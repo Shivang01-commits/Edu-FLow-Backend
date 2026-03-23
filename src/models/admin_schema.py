@@ -1,7 +1,7 @@
 import uuid
 from pydantic import BaseModel, EmailStr, Field
 from datetime import date
-from typing import Optional
+from typing import Optional,List
 from decimal import Decimal
 
 
@@ -37,3 +37,12 @@ class AssignTeacherRequest(BaseModel):
     teacher_id: uuid.UUID
     subject: Optional[str] = None
     is_classroom_teacher: bool = False
+
+class BulkEnrollResponse(BaseModel):
+    status: str = Field(..., description="success, validation_failed")
+    total_rows: int
+    enrolled_count: int
+    skipped_count: int
+    failed_count: int
+    skipped_rows: Optional[List[dict]] = []
+    failed_rows: Optional[List[dict]] = []
