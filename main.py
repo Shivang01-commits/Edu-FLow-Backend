@@ -33,7 +33,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*","https://frontend-delta-blush-t9jcv9mqi0.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
