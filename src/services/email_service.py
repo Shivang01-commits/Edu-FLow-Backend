@@ -1,65 +1,85 @@
 """
 email_service.py
 ----------------
-Sends emails via Gmail SMTP.
+Sends emails via Brevo (formerly Sendinblue) API.
+Works perfectly on Render (no SMTP blocking issues).
 
 Required .env variables:
-  GMAIL_SENDER_EMAIL=yourapp@gmail.com
-  GMAIL_APP_PASSWORD=xxxx-xxxx-xxxx-xxxx   ← Gmail App Password (not your Gmail login password)
+  BREVO_API_KEY=your_brevo_api_key
+  BREVO_SENDER_EMAIL=your-email@example.com
   APP_NAME=Padhai App
   APP_URL=https://yourapp.com
 
-How to get Gmail App Password:
-  1. Go to Google Account → Security
-  2. Enable 2-Step Verification
-  3. Go to App Passwords → create one for "Mail"
-  4. Use that 16-character password in GMAIL_APP_PASSWORD
+How to get Brevo API Key:
+  1. Sign up at https://brevo.com (free account)
+  2. Go to Settings → SMTP & API → API Keys
+  3. Create a new API key and copy it
+  4. Use that key in BREVO_API_KEY
+  5. Verify your sender email in Settings → Senders & Signatures
+
+Free tier: 300 emails per day (unlimited)
 """
 
 import os
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-
+import requests
 from fastapi import HTTPException, status
 
-GMAIL_SENDER_EMAIL = os.getenv("GMAIL_SENDER_EMAIL")
-GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
+BREVO_API_KEY = os.getenv("BREVO_API_KEY")
+BREVO_SENDER_EMAIL = os.getenv("BREVO_SENDER_EMAIL")
 APP_NAME = os.getenv("APP_NAME", "Padhai App")
 APP_URL = os.getenv("APP_URL", "https://yourapp.com")
+
+BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
 
 
 def _send_email(to_email: str, subject: str, html_body: str) -> None:
     """
-    Core SMTP send function.
+    Core Brevo API send function.
     All other functions in this file call this.
     """
-    if not GMAIL_SENDER_EMAIL or not GMAIL_APP_PASSWORD:
+    if not BREVO_API_KEY or not BREVO_SENDER_EMAIL:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Email service not configured. Set GMAIL_SENDER_EMAIL and GMAIL_APP_PASSWORD in .env",
+            detail="Email service not configured. Set BREVO_API_KEY and BREVO_SENDER_EMAIL in .env",
         )
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = f"{APP_NAME} <{GMAIL_SENDER_EMAIL}>"
-    msg["To"] = to_email
+    headers = {
+        "api-key": BREVO_API_KEY,
+        "Content-Type": "application/json"
+    }
 
-    msg.attach(MIMEText(html_body, "html"))
+    payload = {
+        "sender": {
+            "name": APP_NAME,
+            "email": BREVO_SENDER_EMAIL
+        },
+        "to": [
+            {
+                "email": to_email
+            }
+        ],
+        "subject": subject,
+        "htmlContent": html_body,
+    }
 
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(GMAIL_SENDER_EMAIL, GMAIL_APP_PASSWORD)
-            server.sendmail(GMAIL_SENDER_EMAIL, to_email, msg.as_string())
-    except smtplib.SMTPAuthenticationError:
+        response = requests.post(BREVO_API_URL, json=payload, headers=headers, timeout=10)
+        
+        if response.status_code not in [200, 201]:
+            error_detail = response.json().get("message", "Unknown error")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to send email: {error_detail}",
+            )
+    except requests.exceptions.Timeout:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Gmail authentication failed. Check GMAIL_APP_PASSWORD in .env",
+            detail="Email service timeout. Please try again.",
         )
-    except smtplib.SMTPException as e:
+    except requests.exceptions.RequestException as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to send email: {str(e)}",
+            detail=f"Email service error: {str(e)}",
         )
 
 
@@ -70,7 +90,7 @@ def send_student_welcome_email(
     school_name: str,
     password: str,
     grade_level: int,
-    section: str,  # ← add this
+    section: str,
 ) -> None:
     subject = f"Welcome to {APP_NAME} — Your Login Details"
 
