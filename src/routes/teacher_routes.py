@@ -121,7 +121,7 @@ def publish_chapter_content(
     return teacher_service.publish_chapter_content(db, current_user, data)
 
 
-@router.get(
+@router.post(
     "/get-content",
     summary="Get chapter content from global books [teacher only]",
     description=(
