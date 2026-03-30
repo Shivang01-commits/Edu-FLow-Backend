@@ -14,6 +14,7 @@ from sqlalchemy import (
     Enum as SAEnum,
     UniqueConstraint,
     Numeric,
+    Text,
 )
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
@@ -383,3 +384,37 @@ class TeacherProfile(Base):
         "User", back_populates="teacher_profile", foreign_keys=[teacher_id]
     )
     school = relationship("School", foreign_keys=[school_id])
+
+
+class Presentation(Base):
+    __tablename__ = "presentations"
+
+    presentation_id = Column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False
+    )
+    school_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("schools.school_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    created_by = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.user_id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    class_chapter_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("class_chapters.class_chapter_id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    title = Column(String, nullable=False)
+    presenton_id = Column(String, nullable=True)
+    presenton_edit_url = Column(Text, nullable=True)
+    cloudinary_url = Column(Text, nullable=True)
+    cloudinary_public_id = Column(Text, nullable=True)
+    template = Column(String, nullable=True)
+    theme = Column(String, nullable=True)
+    status = Column(
+        String, default="generating", nullable=False
+    )  # generating | ready | failed
+    created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)

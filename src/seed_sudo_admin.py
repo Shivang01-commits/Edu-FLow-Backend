@@ -46,7 +46,7 @@ SUDO_ADMIN_LASTNAME = os.getenv("SUDO_ADMIN_LASTNAME", "Admin")
 
 def seed():
     # create tables if they don't exist yet
-    init_db()
+    # init_db()
 
     db = SessionLocal()
     try:

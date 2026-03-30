@@ -2,7 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from src.db.main import init_db
+# from src.db.main import init_db
 
 from src.routes.new_book_routes import router as new_book_router
 from src.routes.auth_routes import router as auth_router
@@ -16,7 +16,7 @@ from src.routes.student_routes import router as student_router
 async def lifespan(app: FastAPI):
     print("Server starting...")
     try:
-        init_db()
+        # init_db()
         print("DB initialized")
     except Exception as e:
         print("DB init failed:", e)
