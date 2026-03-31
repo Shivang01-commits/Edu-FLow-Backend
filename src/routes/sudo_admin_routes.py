@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from src.db.main import get_db
 from src.db.models import User
 from src.services.db_services.sudo_admin_service import SudoAdminService
-from src.services.cloudinary_service import upload_school_document
+from src.utils.cloudinary_utils import upload_school_document
 from src.utils.jwt_handler import require_role
 
 router = APIRouter(prefix="/sudo", tags=["Sudo Admin"])

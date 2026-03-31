@@ -1,4 +1,5 @@
 import os
+import io
 import cloudinary
 import cloudinary.uploader
 from fastapi import HTTPException, status, UploadFile
@@ -75,3 +76,22 @@ def upload_school_document(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to upload {doc_type} to storage: {str(e)}",
         )
+
+
+def upload_pptx_to_cloudinary(pptx_bytes: bytes, public_id: str) -> dict:
+    """
+    Uploads raw PPTX bytes to Cloudinary under padhai/{school_id}/presentations/
+    resource_type="raw" is required for non-image files like .pptx
+    Returns: { url, public_id }
+    """
+    result = cloudinary.uploader.upload(
+        io.BytesIO(pptx_bytes),
+        resource_type="raw",
+        public_id=public_id,
+        format="pptx",
+        overwrite=True,
+    )
+    return {
+        "url": result["secure_url"],
+        "public_id": result["public_id"],
+    }
