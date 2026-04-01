@@ -16,19 +16,24 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 auth_service = AuthService()
 
 
-@router.post(
-    "/login",
-    summary="Login with email and password",
-    description=(
-        "Returns access token (30 min), refresh token (7 days), and is_password_changed flag. "
-        "Frontend checks is_password_changed — if False, show 'please change your password' banner."
-    ),
-)
-def login(
-    data: LoginRequest,
-    db: Session = Depends(get_db),
-):
-    return auth_service.login(db, data.email, data.password)
+@router.post("/admin/login", summary="Admin login")
+def admin_login(data: LoginRequest, db: Session = Depends(get_db)):
+    return auth_service.login(db, data.email, data.password, required_role="admin")
+
+
+@router.post("/sudo-admin/login", summary="Sudo admin login")
+def sudo_admin_login(data: LoginRequest, db: Session = Depends(get_db)):
+    return auth_service.login(db, data.email, data.password, required_role="sudo_admin")
+
+
+@router.post("/teacher/login", summary="Teacher login")
+def teacher_login(data: LoginRequest, db: Session = Depends(get_db)):
+    return auth_service.login(db, data.email, data.password, required_role="teacher")
+
+
+@router.post("/student/login", summary="Student login")
+def student_login(data: LoginRequest, db: Session = Depends(get_db)):
+    return auth_service.login(db, data.email, data.password, required_role="student")
 
 
 @router.post(

@@ -45,7 +45,9 @@ class AuthService:
     # e.g. admin_access_token, admin_refresh_token
     # Frontend checks is_password_changed to show "please change password" banner.
     # -----------------------------------------------------------------------
-    def login(self, db: Session, email: str, password: str) -> dict:
+    def login(
+        self, db: Session, email: str, password: str, required_role: str | None = None
+    ) -> dict:
         user = db.query(User).filter(User.email == email.lower().strip()).first()
 
         if not user or not verify_password(password, user.password_hash):
@@ -60,12 +62,24 @@ class AuthService:
                 detail="Your account has been deactivated. Contact your school administrator.",
             )
 
-        role = user.role.value
-        access_token_key, refresh_token_key = _token_keys(role)
+        user_role = user.role.value
+        access_token_key, refresh_token_key = _token_keys(user_role)
+
+        if required_role and user_role != required_role:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password",  # intentionally vague, don't leak role info
+            )
+
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your account has been deactivated. Contact your school administrator.",
+            )
 
         access_token = create_access_token(
             user_id=str(user.user_id),
-            role=role,
+            role=user_role,
             school_id=str(user.school_id) if user.school_id else None,
         )
         refresh_token = create_refresh_token(user_id=str(user.user_id))
@@ -80,7 +94,7 @@ class AuthService:
                 "email": user.email,
                 "first_name": user.first_name,
                 "last_name": user.last_name,
-                "role": role,
+                "role": user_role,
                 "school_id": str(user.school_id) if user.school_id else None,
                 "is_password_changed": user.is_password_changed,
             },
@@ -90,12 +104,12 @@ class AuthService:
     # REFRESH — issue new access token using refresh token
     # -----------------------------------------------------------------------
     def refresh_access_token(self, user: User) -> dict:
-        role = user.role.value
-        access_token_key, _ = _token_keys(role)
+        user_role = user.role.value
+        access_token_key, _ = _token_keys(user_role)
 
         access_token = create_access_token(
             user_id=str(user.user_id),
-            role=role,
+            role=user_role,
             school_id=str(user.school_id) if user.school_id else None,
         )
         return {
