@@ -28,10 +28,21 @@ def verify_password(plain: str, hashed: str) -> bool:
     return bcrypt_lib.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
 
 
+def _token_keys(role: str) -> tuple[str, str]:
+    """
+    Returns (access_token_key, refresh_token_key) based on role.
+    e.g. "admin" → ("admin_access_token", "admin_refresh_token")
+    Handles both enum values like "sudo_admin" and plain strings.
+    """
+    prefix = role.lower().replace(" ", "_")  # safety normalisation
+    return f"{prefix}_access_token", f"{prefix}_refresh_token"
+
+
 class AuthService:
     # -----------------------------------------------------------------------
     # LOGIN
-    # Returns access token + refresh token + is_password_changed flag.
+    # Returns role-prefixed access + refresh tokens + is_password_changed flag.
+    # e.g. admin_access_token, admin_refresh_token
     # Frontend checks is_password_changed to show "please change password" banner.
     # -----------------------------------------------------------------------
     def login(self, db: Session, email: str, password: str) -> dict:
@@ -49,27 +60,27 @@ class AuthService:
                 detail="Your account has been deactivated. Contact your school administrator.",
             )
 
+        role = user.role.value
+        access_token_key, refresh_token_key = _token_keys(role)
+
         access_token = create_access_token(
             user_id=str(user.user_id),
-            role=user.role.value,
+            role=role,
             school_id=str(user.school_id) if user.school_id else None,
         )
         refresh_token = create_refresh_token(user_id=str(user.user_id))
 
         return {
-            "access_token": access_token,
-            "refresh_token": refresh_token,
+            access_token_key: access_token,
+            refresh_token_key: refresh_token,
             "token_type": "bearer",
             "is_password_changed": user.is_password_changed,
-            # Frontend uses this flag:
-            # False → show "Please change your default password" banner
-            # True  → normal dashboard
             "user": {
                 "user_id": str(user.user_id),
                 "email": user.email,
                 "first_name": user.first_name,
                 "last_name": user.last_name,
-                "role": user.role.value,
+                "role": role,
                 "school_id": str(user.school_id) if user.school_id else None,
                 "is_password_changed": user.is_password_changed,
             },
@@ -79,13 +90,16 @@ class AuthService:
     # REFRESH — issue new access token using refresh token
     # -----------------------------------------------------------------------
     def refresh_access_token(self, user: User) -> dict:
+        role = user.role.value
+        access_token_key, _ = _token_keys(role)
+
         access_token = create_access_token(
             user_id=str(user.user_id),
-            role=user.role.value,
+            role=role,
             school_id=str(user.school_id) if user.school_id else None,
         )
         return {
-            "access_token": access_token,
+            access_token_key: access_token,  # e.g. "teacher_access_token"
             "token_type": "bearer",
         }
 
@@ -129,7 +143,7 @@ class AuthService:
             )
 
         user.password_hash = hash_password(new_password)
-        user.is_password_changed = True  # banner goes away on frontend
+        user.is_password_changed = True
         db.commit()
 
         return {"message": "Password changed successfully"}
