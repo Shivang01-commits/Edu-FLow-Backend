@@ -14,21 +14,33 @@ import os
 import uuid
 import shutil
 from typing import Optional
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+    BackgroundTasks,
+)
 from sqlalchemy.orm import Session
 from src.db.main import get_db
 from src.db.models import User
 from src.services.db_services.teacher_service import TeacherService
 from src.services.db_services.book_service import BookService, ClassChapterService
 from src.services.ai_services.book_ingestion_services import BookIngestionService
-from src.utils.pdf_extractor import PDFExtractor
 from src.utils.jwt_handler import get_current_user, require_role
 from src.models.books_schema import UpdateBookFieldsRequest
+from src.models.presentation_schema import GeneratePresentationRequest
+from src.services.ai_services.presentation_service import PresentationService
+
 
 book_service = BookService()
 chapter_service = ClassChapterService()
 ai_service = BookIngestionService()
 teacher_service = TeacherService()
+presentation_service = PresentationService()
+
 router = APIRouter(prefix="/books", tags=["Global Books"])
 
 
@@ -204,6 +216,25 @@ def delete_book(
     current_user: User = Depends(require_role("sudo_admin")),
 ):
     return book_service.delete_book(db, book_id)
+
+
+@router.post("/{book_id}/generate-ppt")
+async def generate_book_ppt(
+    book_id: uuid.UUID,
+    data: GeneratePresentationRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("sudo_admin")),
+):
+    return presentation_service.initiate_ppt_generation(
+        db=db,
+        book_id=book_id,
+        background_tasks=background_tasks,
+        template=data.template,
+        theme=data.theme,
+        language=data.language,
+        export_as=data.export_as,
+    )
 
 
 # TESTING ROUTES (FOR DEVELOPEMENT PURPOSES ONLY)

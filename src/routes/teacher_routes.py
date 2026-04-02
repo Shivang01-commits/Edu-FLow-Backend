@@ -24,12 +24,9 @@ from src.models.books_schema import (
 )
 from src.services.ai_services.presentation_service import PresentationService
 
-# add these imports at the top of teacher_router.py
-from fastapi import BackgroundTasks
-from src.models.presentation_schema import GeneratePresentationRequest
-
 
 router = APIRouter(prefix="/teacher", tags=["Teacher"])
+
 teacher_service = TeacherService()
 presentation_service = PresentationService()
 
@@ -175,68 +172,14 @@ def get_published_content_list(
     )
 
 
-@router.post(
-    "/presentations/generate",
-    summary="Generate AI presentation from stored PPT structure [teacher only]",
-    description=(
-        "Kicks off async PPT generation using ppt_structure from ClassChapter "
-        "(or falls back to Books if not overridden). "
-        "Returns 202 immediately. Poll /teacher/presentations/{presentation_id} for status."
-    ),
-    status_code=202,
+@router.get(
+    "/books/{book_id}/ppt",
+    summary="Get PPT URL for a book [teacher only]",
+    description="Returns the globally generated PPT URL for this book. Teachers cannot trigger generation.",
 )
-def generate_presentation(
-    data: GeneratePresentationRequest,
-    background_tasks: BackgroundTasks,
+def get_book_ppt(
+    book_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("teacher")),
 ):
-    return presentation_service.initiate_generation(
-        db, current_user, data, background_tasks
-    )
-
-
-@router.get(
-    "/presentations/{presentation_id}",
-    summary="Poll presentation generation status [teacher only]",
-    description=(
-        "Returns status (generating | ready | failed) and cloudinary_url when ready. "
-        "Frontend should poll this every 3-5 seconds after triggering generation."
-    ),
-)
-def get_presentation_status(
-    presentation_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("teacher")),
-):
-    return presentation_service.get_status(db, current_user, presentation_id)
-
-
-@router.get(
-    "/presentations",
-    summary="List all presentations by teacher [teacher only]",
-    description="Optionally filter by class_chapter_id to get PPTs for a specific chapter.",
-)
-def get_all_presentations(
-    class_chapter_id: uuid.UUID = None,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("teacher")),
-):
-    return presentation_service.get_all(db, current_user, class_chapter_id)
-
-
-# ── DEV ONLY — remove after copying layout IDs into DEFAULT_LAYOUT_MAP ──
-@router.get(
-    "/presentations/inspect-template/{template_id}",
-    summary="[DEV ONLY] Inspect Presenton template to get layout IDs",
-    description=(
-        "Call once with template_id (e.g. 'general') to see all layout IDs "
-        "and their json_schema. Copy IDs into DEFAULT_LAYOUT_MAP in presenton_utils.py "
-        "then delete this route."
-    ),
-)
-async def inspect_template(
-    template_id: str,
-    current_user: User = Depends(require_role("teacher")),
-):
-    return await presentation_service.inspect_template(template_id)
+    return presentation_service.get_ppt_for_book(db=db, book_id=book_id)

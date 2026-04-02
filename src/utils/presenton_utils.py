@@ -133,9 +133,6 @@ def build_image(title: str, description: str):
     }
 
 
-# ─────────────────────────────────────────────────────────────
-# 🧠 TRANSFORM FUNCTION
-# ─────────────────────────────────────────────────────────────
 def transform_ppt_structure(
     ppt_structure: dict,
     template: str = "general",
@@ -200,9 +197,6 @@ def transform_ppt_structure(
     }
 
 
-# ─────────────────────────────────────────────────────────────
-# 🚀 API CALL
-# ─────────────────────────────────────────────────────────────
 async def create_presentation_from_json(payload: dict) -> dict:
     async with httpx.AsyncClient(timeout=120.0) as client:
         response = await client.post(
@@ -214,9 +208,6 @@ async def create_presentation_from_json(payload: dict) -> dict:
         return response.json()
 
 
-# ─────────────────────────────────────────────────────────────
-# 📥 DOWNLOAD
-# ─────────────────────────────────────────────────────────────
 async def download_pptx_bytes(download_url: str) -> bytes:
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.get(download_url)
@@ -224,9 +215,6 @@ async def download_pptx_bytes(download_url: str) -> bytes:
         return response.content
 
 
-# ─────────────────────────────────────────────────────────────
-# 🔍 TEMPLATE INSPECT
-# ─────────────────────────────────────────────────────────────
 async def get_template_layouts(template_id: str) -> dict:
     async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.get(
