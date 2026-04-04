@@ -136,7 +136,7 @@ def build_image(title: str, description: str):
 def transform_ppt_structure(
     ppt_structure: dict,
     template: str = "general",
-    theme: str = "general-light",
+    theme: str = "professional-dark",
     language: str = "en",
     export_as: str = "pptx",
 ):

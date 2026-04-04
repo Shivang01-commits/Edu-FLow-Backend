@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
 from src.db.main import get_db
 from src.db.models import User
@@ -20,11 +20,11 @@ student_service = StudentService()
         "all published chapters, last 5 quiz attempts with average score."
     ),
 )
-def student_dashboard(
-    db: Session = Depends(get_db),
+async def student_dashboard(
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("student")),
 ):
-    return student_service.get_dashboard(db, current_user)
+    return await student_service.get_dashboard(db, current_user)
 
 
 @router.get(
@@ -36,11 +36,11 @@ def student_dashboard(
         "Use GET /class-chapters/{id}/student-view to read full content of a chapter."
     ),
 )
-def get_published_chapters(
-    db: Session = Depends(get_db),
+async def get_published_chapters(
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("student")),
 ):
-    return student_service.get_published_chapters(db, current_user)
+    return await student_service.get_published_chapters(db, current_user)
 
 
 @router.get(
@@ -52,11 +52,11 @@ def get_published_chapters(
         "Use GET /quiz/attempt/{id} for full result with correct answers."
     ),
 )
-def get_quiz_history(
-    db: Session = Depends(get_db),
+async def get_quiz_history(
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("student")),
 ):
-    return student_service.get_quiz_history(db, current_user)
+    return await student_service.get_quiz_history(db, current_user)
 
 
 @router.get(
@@ -67,12 +67,12 @@ def get_quiz_history(
         "Used to populate subject filter dropdown."
     ),
 )
-def get_class_subjects(
+async def get_class_subjects(
     class_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("student")),
 ):
-    return student_service.get_class_subjects(db, current_user, class_id)
+    return await student_service.get_class_subjects(db, current_user, class_id)
 
 
 @router.get(
@@ -83,14 +83,14 @@ def get_class_subjects(
         "for a specific subject in the student's class."
     ),
 )
-def get_published_content_for_subject(
+async def get_published_content_for_subject(
     class_id: uuid.UUID,
     subject: str,
     content_type: str,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("student")),
 ):
-    return student_service.get_published_content_for_subject(
+    return await student_service.get_published_content_for_subject(
         db, current_user, class_id, subject, content_type
     )
 
@@ -103,13 +103,13 @@ def get_published_content_for_subject(
         "for a published chapter. Student must be enrolled in the class."
     ),
 )
-def get_student_chapter_content(
+async def get_student_chapter_content(
     class_chapter_id: uuid.UUID,
     content_type: str,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("student")),
 ):
-    return student_service.get_student_chapter_content(
+    return await student_service.get_student_chapter_content(
         db, current_user, class_chapter_id, content_type
     )
 
@@ -123,13 +123,13 @@ def get_student_chapter_content(
         "Only one attempt per quiz allowed."
     ),
 )
-def submit_quiz(
+async def submit_quiz(
     class_chapter_id: uuid.UUID,
     data: SubmitQuizRequest,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("student")),
 ):
-    return student_service.submit_quiz(db, current_user, class_chapter_id, data)
+    return await student_service.submit_quiz(db, current_user, class_chapter_id, data)
 
 
 @router.get(
@@ -140,9 +140,9 @@ def submit_quiz(
         "and detailed question-by-question breakdown showing correct/incorrect answers."
     ),
 )
-def view_quiz_results(
+async def view_quiz_results(
     quiz_attempt_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("student")),
 ):
-    return student_service.view_quiz_results(db, current_user, quiz_attempt_id)
+    return await student_service.view_quiz_results(db, current_user, quiz_attempt_id)

@@ -12,7 +12,7 @@ from fastapi import (
     UploadFile,
     status,
 )
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.main import get_db
 from src.db.models import User
@@ -24,9 +24,7 @@ router = APIRouter(prefix="/sudo", tags=["Sudo Admin"])
 sudo_admin_service = SudoAdminService()
 
 
-# ===========================================================================
 # REGISTER SCHOOL + ADMIN — 3-step form
-# ===========================================================================
 
 
 @router.post(
@@ -54,7 +52,7 @@ async def register_school(
     phone_number: str = Form(""),
     admin_date_of_birth: str = Form(""),
     # Auth
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("sudo_admin")),
 ):
     reg_cert_url = None
@@ -84,7 +82,7 @@ async def register_school(
                 detail="admin_date_of_birth must be in YYYY-MM-DD format e.g. 1990-01-15",
             )
 
-    return sudo_admin_service.register_school_with_admin(
+    return await sudo_admin_service.register_school_with_admin(
         db=db,
         school_name=school_name,
         admin_email=admin_email,
@@ -104,9 +102,7 @@ async def register_school(
     )
 
 
-# ===========================================================================
 # ADMIN MANAGEMENT PAGE
-# ===========================================================================
 
 
 @router.get(
@@ -118,28 +114,26 @@ async def register_school(
         "Matches the Admin Management page in the UI."
     ),
 )
-def get_all_admins(
+async def get_all_admins(
     filter: str = Query("all", enum=["all", "active", "revoked"]),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("sudo_admin")),
 ):
-    return sudo_admin_service.get_all_admins(db, filter=filter)
+    return await sudo_admin_service.get_all_admins(db, filter=filter)
 
 
-# ===========================================================================
 # SCHOOL MANAGEMENT
-# ===========================================================================
 
 
 @router.get(
     "/schools",
     summary="List all schools [sudo_admin only]",
 )
-def list_schools(
-    db: Session = Depends(get_db),
+async def list_schools(
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("sudo_admin")),
 ):
-    return sudo_admin_service.list_schools(db)
+    return await sudo_admin_service.list_schools(db)
 
 
 # get school + admin details route
@@ -148,45 +142,45 @@ def list_schools(
     summary="Get school + admin full details [sudo_admin only]",
     description="Returns complete school info + admin profile. admin is null if none exists.",
 )
-def get_school_with_admin(
+async def get_school_with_admin(
     school_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("sudo_admin")),
 ):
-    return sudo_admin_service.get_school_with_admin(db, school_id)
+    return await sudo_admin_service.get_school_with_admin(db, school_id)
 
 
 @router.get(
     "/schools/{school_id}",
     summary="Get school by ID [sudo_admin only]",
 )
-def get_school(
+async def get_school(
     school_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("sudo_admin")),
 ):
-    return sudo_admin_service.get_school_by_id(db, school_id)
+    return await sudo_admin_service.get_school_by_id(db, school_id)
 
 
 @router.get(
     "/admins/{admin_id}",
     summary="Get admin by ID [sudo_admin only]",
 )
-def get_admin(
+async def get_admin(
     admin_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("sudo_admin")),
 ):
-    return sudo_admin_service.get_admin_by_id(db, admin_id)
+    return await sudo_admin_service.get_admin_by_id(db, admin_id)
 
 
 @router.post(
     "/schools/{school_id}/deactivate",
     summary="Deactivate a school and all its users [sudo_admin only]",
 )
-def deactivate_school(
+async def deactivate_school(
     school_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("sudo_admin")),
 ):
-    return sudo_admin_service.deactivate_school(db, school_id)
+    return await sudo_admin_service.deactivate_school(db, school_id)

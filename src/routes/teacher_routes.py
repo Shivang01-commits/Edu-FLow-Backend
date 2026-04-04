@@ -11,8 +11,7 @@ GET /teacher/classes/{class_id}/books           → global books to browse and a
 import uuid
 
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
-
+from sqlalchemy.ext.asyncio import AsyncSession
 from src.db.main import get_db
 from src.db.models import User
 from src.services.db_services.teacher_service import TeacherService
@@ -40,11 +39,11 @@ presentation_service = PresentationService()
         "and published vs unpublished chapter counts."
     ),
 )
-def teacher_dashboard(
-    db: Session = Depends(get_db),
+async def teacher_dashboard(
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("teacher")),
 ):
-    return teacher_service.get_dashboard(db, current_user)
+    return await teacher_service.get_dashboard(db, current_user)
 
 
 @router.get(
@@ -55,12 +54,12 @@ def teacher_dashboard(
         "Teacher sees everything. Students only see published ones."
     ),
 )
-def get_chapters_for_class(
+async def get_chapters_for_class(
     class_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("teacher")),
 ):
-    return teacher_service.get_chapters_for_class(db, current_user, class_id)
+    return await teacher_service.get_chapters_for_class(db, current_user, class_id)
 
 
 @router.get(
@@ -71,12 +70,12 @@ def get_chapters_for_class(
         "is_assigned = true means this chapter is already added to this class."
     ),
 )
-def get_available_books(
+async def get_available_books(
     class_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("teacher")),
 ):
-    return teacher_service.get_available_books(db, current_user, class_id)
+    return await teacher_service.get_available_books(db, current_user, class_id)
 
 
 @router.get(
@@ -87,13 +86,13 @@ def get_available_books(
         "Used to populate dropdown in 'Generate Summary/Quiz/etc' form."
     ),
 )
-def get_book_names(
+async def get_book_names(
     grade_level: int,
     subject: str,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("teacher")),
 ):
-    return teacher_service.get_book_names(db, grade_level, subject)
+    return await teacher_service.get_book_names(db, grade_level, subject)
 
 
 @router.post(
@@ -105,12 +104,12 @@ def get_book_names(
         "Also creates ClassChapter record if it doesn't exist."
     ),
 )
-def edit_chapter_content(
+async def edit_chapter_content(
     data: EditChapterContentRequest,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("teacher")),
 ):
-    return teacher_service.edit_chapter_content(db, current_user, data)
+    return await teacher_service.edit_chapter_content(db, current_user, data)
 
 
 @router.post(
@@ -121,12 +120,12 @@ def edit_chapter_content(
         "or with chapter metadata (direct publish without EDIT)"
     ),
 )
-def publish_chapter_content(
+async def publish_chapter_content(
     data: PublishContentRequest,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("teacher")),
 ):
-    return teacher_service.publish_chapter_content(db, current_user, data)
+    return await teacher_service.publish_chapter_content(db, current_user, data)
 
 
 @router.post(
@@ -138,12 +137,12 @@ def publish_chapter_content(
         "Returns content that teacher can edit and then publish to their class."
     ),
 )
-def get_chapter_content(
+async def get_chapter_content(
     data: GetChapterContentRequest,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("teacher")),
 ):
-    return teacher_service.get_chapter_content(
+    return await teacher_service.get_chapter_content(
         db,
         data.book_name,
         data.class_grade,
@@ -161,13 +160,13 @@ def get_chapter_content(
         "that the teacher has published to a specific class."
     ),
 )
-def get_published_content_list(
+async def get_published_content_list(
     class_id: uuid.UUID,
     content_type: str,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("teacher")),
 ):
-    return teacher_service.get_published_content_list(
+    return await teacher_service.get_published_content_list(
         db, current_user, class_id, content_type
     )
 
@@ -177,9 +176,9 @@ def get_published_content_list(
     summary="Get PPT URL for a book [teacher only]",
     description="Returns the globally generated PPT URL for this book. Teachers cannot trigger generation.",
 )
-def get_book_ppt(
+async def get_book_ppt(
     book_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("teacher")),
 ):
-    return presentation_service.get_ppt_for_book(db=db, book_id=book_id)
+    return await presentation_service.get_ppt_for_book(db=db, book_id=book_id)

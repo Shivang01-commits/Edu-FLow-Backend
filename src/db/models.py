@@ -53,12 +53,12 @@ class School(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     plan = Column(String, nullable=False)
 
-    users = relationship("User", back_populates="school")
-    classes = relationship("Class", back_populates="school")
-    class_teachers = relationship("ClassTeacher", back_populates="school")
-    enrollments = relationship("Enrollment", back_populates="school")
-    class_chapters = relationship("ClassChapter", back_populates="school")
-    quizzes = relationship("Quiz", back_populates="school")
+    users = relationship("User", back_populates="school", lazy="raise")
+    classes = relationship("Class", back_populates="school", lazy="raise")
+    class_teachers = relationship("ClassTeacher", back_populates="school", lazy="raise")
+    enrollments = relationship("Enrollment", back_populates="school", lazy="raise")
+    class_chapters = relationship("ClassChapter", back_populates="school", lazy="raise")
+    quizzes = relationship("Quiz", back_populates="school", lazy="raise")
 
 
 class User(Base):
@@ -79,9 +79,6 @@ class User(Base):
     date_of_birth = Column(Date, nullable=True)
     phone_number = Column(String, nullable=True)
 
-    # join_date = Column(String, nullable=True)
-    # designation = Column(String, nullable=True)
-
     role = Column(
         SAEnum(UserRole, name="userrole"), nullable=False, default=UserRole.student
     )
@@ -92,21 +89,36 @@ class User(Base):
         DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
     )
 
-    school = relationship("School", back_populates="users")
+    school = relationship("School", back_populates="users", lazy="raise")
     teaching = relationship(
-        "ClassTeacher", back_populates="teacher", foreign_keys="ClassTeacher.teacher_id"
+        "ClassTeacher",
+        back_populates="teacher",
+        foreign_keys="ClassTeacher.teacher_id",
+        lazy="raise",
     )
     enrollments = relationship(
-        "Enrollment", back_populates="student", foreign_keys="Enrollment.student_id"
+        "Enrollment",
+        back_populates="student",
+        foreign_keys="Enrollment.student_id",
+        lazy="raise",
     )
     quiz_attempts = relationship(
-        "Quiz", back_populates="student", foreign_keys="Quiz.student_id"
+        "Quiz",
+        back_populates="student",
+        foreign_keys="Quiz.student_id",
+        lazy="raise",
     )
     chapters_taught = relationship(
-        "ClassChapter", back_populates="teacher", foreign_keys="ClassChapter.teacher_id"
+        "ClassChapter",
+        back_populates="teacher",
+        foreign_keys="ClassChapter.teacher_id",
+        lazy="raise",
     )
     teacher_profile = relationship(
-        "TeacherProfile", back_populates="teacher", uselist=False
+        "TeacherProfile",
+        back_populates="teacher",
+        uselist=False,
+        lazy="raise",
     )
 
 
@@ -121,7 +133,6 @@ class Class(Base):
         ForeignKey("schools.school_id", ondelete="CASCADE"),
         nullable=False,
     )
-    # class_name = Column(String, nullable=False)
     grade_level = Column(Integer, nullable=False)
     section = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
@@ -132,15 +143,24 @@ class Class(Base):
         ),
     )
 
-    school = relationship("School", back_populates="classes")
+    school = relationship("School", back_populates="classes", lazy="raise")
     class_teachers = relationship(
-        "ClassTeacher", back_populates="class_", cascade="all, delete-orphan"
+        "ClassTeacher",
+        back_populates="class_",
+        cascade="all, delete-orphan",
+        lazy="raise",
     )
     enrollments = relationship(
-        "Enrollment", back_populates="class_", cascade="all, delete-orphan"
+        "Enrollment",
+        back_populates="class_",
+        cascade="all, delete-orphan",
+        lazy="raise",
     )
     class_chapters = relationship(
-        "ClassChapter", back_populates="class_", cascade="all, delete-orphan"
+        "ClassChapter",
+        back_populates="class_",
+        cascade="all, delete-orphan",
+        lazy="raise",
     )
 
 
@@ -175,9 +195,14 @@ class ClassTeacher(Base):
         ),
     )
 
-    school = relationship("School", back_populates="class_teachers")
-    class_ = relationship("Class", back_populates="class_teachers")
-    teacher = relationship("User", back_populates="teaching", foreign_keys=[teacher_id])
+    school = relationship("School", back_populates="class_teachers", lazy="raise")
+    class_ = relationship("Class", back_populates="class_teachers", lazy="raise")
+    teacher = relationship(
+        "User",
+        back_populates="teaching",
+        foreign_keys=[teacher_id],
+        lazy="raise",
+    )
 
 
 class Enrollment(Base):
@@ -209,19 +234,19 @@ class Enrollment(Base):
     admission_number = Column(Integer, nullable=True, index=True)
     parent_name = Column(String, nullable=True)
     parent_phone = Column(String, nullable=True)
-    # parent_email = Column(String, nullable=True)
-    # guardian_name = Column(String, nullable=True)  # if different from parent
-    # guardian_phone = Column(String, nullable=True)
     fee_status = Column(String, nullable=False, default="pending")
 
     __table_args__ = (
         UniqueConstraint("class_id", "student_id", name="uq_enrollment_class_student"),
     )
 
-    school = relationship("School", back_populates="enrollments")
-    class_ = relationship("Class", back_populates="enrollments")
+    school = relationship("School", back_populates="enrollments", lazy="raise")
+    class_ = relationship("Class", back_populates="enrollments", lazy="raise")
     student = relationship(
-        "User", back_populates="enrollments", foreign_keys=[student_id]
+        "User",
+        back_populates="enrollments",
+        foreign_keys=[student_id],
+        lazy="raise",
     )
 
 
@@ -238,16 +263,13 @@ class Book(Base):
     chapter_title = Column(String, nullable=False)
     isbn = Column(String, nullable=True, index=True)
     board = Column(String, nullable=True, index=True)
-    # change this scraped_nullable to False
     scraped_chapter = Column(String, nullable=False)
     summary = Column(JSONB, nullable=True)
     qa_bank = Column(JSONB, nullable=True)
     quiz = Column(JSONB, nullable=True)
     ppt_structure = Column(JSONB, nullable=True)
     ppt_url = Column(String, nullable=True)
-    ppt_status = Column(
-        String, nullable=False, default="not_generated"
-    )  # values: not_generated | generating | ready | failed
+    ppt_status = Column(String, nullable=False, default="not_generated")
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
 
     __table_args__ = (
@@ -260,7 +282,11 @@ class Book(Base):
         ),
     )
 
-    class_chapters = relationship("ClassChapter", back_populates="book")
+    class_chapters = relationship(
+        "ClassChapter",
+        back_populates="book",
+        lazy="raise",
+    )
 
 
 class ClassChapter(Base):
@@ -289,9 +315,7 @@ class ClassChapter(Base):
         ForeignKey("users.user_id", ondelete="SET NULL"),
         nullable=True,
     )
-    # chapter_title = Column(String, nullable=True)
     chapter_number = Column(Integer, nullable=False)
-
     subject = Column(String, nullable=False)
 
     custom_summary = Column(JSONB, nullable=True, default=None)
@@ -309,14 +333,20 @@ class ClassChapter(Base):
         DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
     )
 
-    school = relationship("School", back_populates="class_chapters")
-    class_ = relationship("Class", back_populates="class_chapters")
-    book = relationship("Book", back_populates="class_chapters")
+    school = relationship("School", back_populates="class_chapters", lazy="raise")
+    class_ = relationship("Class", back_populates="class_chapters", lazy="raise")
+    book = relationship("Book", back_populates="class_chapters", lazy="raise")
     teacher = relationship(
-        "User", back_populates="chapters_taught", foreign_keys=[teacher_id]
+        "User",
+        back_populates="chapters_taught",
+        foreign_keys=[teacher_id],
+        lazy="raise",
     )
     quizzes = relationship(
-        "Quiz", back_populates="class_chapter", cascade="all, delete-orphan"
+        "Quiz",
+        back_populates="class_chapter",
+        cascade="all, delete-orphan",
+        lazy="raise",
     )
 
 
@@ -344,16 +374,21 @@ class Quiz(Base):
     score = Column(Integer, nullable=False, default=0)
     total_questions = Column(Integer, nullable=False)
     percentage = Column(Float, nullable=False, default=0.0)
-    # attempted_date = Column(DateTime(timezone=True), default=utcnow, nullable=False)
     response = Column(JSONB, nullable=True, default=None)
-
     submitted_date = Column(DateTime(timezone=True), nullable=True)
     status = Column(String, nullable=False, default="pending")
 
-    school = relationship("School", back_populates="quizzes")
-    class_chapter = relationship("ClassChapter", back_populates="quizzes")
+    school = relationship("School", back_populates="quizzes", lazy="raise")
+    class_chapter = relationship(
+        "ClassChapter",
+        back_populates="quizzes",
+        lazy="raise",
+    )
     student = relationship(
-        "User", back_populates="quiz_attempts", foreign_keys=[student_id]
+        "User",
+        back_populates="quiz_attempts",
+        foreign_keys=[student_id],
+        lazy="raise",
     )
 
 
@@ -385,6 +420,9 @@ class TeacherProfile(Base):
     )
 
     teacher = relationship(
-        "User", back_populates="teacher_profile", foreign_keys=[teacher_id]
+        "User",
+        back_populates="teacher_profile",
+        foreign_keys=[teacher_id],
+        lazy="raise",
     )
-    school = relationship("School", foreign_keys=[school_id])
+    school = relationship("School", foreign_keys=[school_id], lazy="raise")

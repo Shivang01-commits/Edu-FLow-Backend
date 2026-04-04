@@ -3,8 +3,9 @@ from datetime import date
 from typing import Optional
 
 from fastapi import HTTPException, status
-from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, update
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from src.db.models import User, UserRole, School, Enrollment, Class
 from src.services.db_services.auth_service import hash_password
@@ -14,9 +15,9 @@ from src.utils.db_utils import get_school_or_404, get_user_or_404
 
 
 class SudoAdminService:
-    def register_school_with_admin(
+    async def register_school_with_admin(
         self,
-        db: Session,
+        db: AsyncSession,
         school_name: str,
         admin_email: str,
         city: str,
@@ -34,12 +35,11 @@ class SudoAdminService:
         admin_date_of_birth: Optional[date] = None,
     ) -> dict:
 
-        existing_school = (
-            db.query(School)
-            .filter(School.admin_email == admin_email.lower().strip())
-            .first()
+        # ✅ fixed — was missing .scalar_one_or_none()
+        existing_result = await db.execute(
+            select(School).where(School.admin_email == admin_email.lower().strip())
         )
-        if existing_school:
+        if existing_result.scalar_one_or_none():
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"A school with admin email {admin_email} already exists",
@@ -60,7 +60,7 @@ class SudoAdminService:
             is_active=True,
         )
         db.add(school)
-        db.flush()
+        await db.flush()
 
         raw_password = generate_random_password()
 
@@ -77,9 +77,9 @@ class SudoAdminService:
             is_password_changed=False,
         )
         db.add(admin)
-        db.commit()
-        db.refresh(school)
-        db.refresh(admin)
+        await db.commit()
+        await db.refresh(school)
+        await db.refresh(admin)
 
         send_admin_welcome_email(
             to_email=admin_email,
@@ -116,31 +116,39 @@ class SudoAdminService:
         }
 
     # -----------------------------------------------------------------------
-    # GET ALL ADMINS — for Admin Management page
-    # Returns stats (total, active, revoked) + list of all admins
-    # filter: "all" | "active" | "revoked"
+    # GET ALL ADMINS
     # -----------------------------------------------------------------------
-    def get_all_admins(self, db: Session, filter: str = "all") -> dict:
-        query = db.query(User).filter(User.role == UserRole.admin)
+    async def get_all_admins(self, db: AsyncSession, filter: str = "all") -> dict:
 
+        # build query based on filter
+        query = select(User).where(User.role == UserRole.admin)
         if filter == "active":
-            query = query.filter(User.is_active)
+            query = query.where(User.is_active == True)
         elif filter == "revoked":
-            query = query.filter(not User.is_active)
+            query = query.where(User.is_active == False)
+        query = query.order_by(User.created_at.desc())
 
-        admins = query.order_by(User.created_at.desc()).all()
+        admins_result = await db.execute(query)
+        admins = admins_result.scalars().all()
 
-        # stats always calculated across ALL admins regardless of filter
-        all_admins = db.query(User).filter(User.role == UserRole.admin).all()
+        # stats across ALL admins regardless of filter
+        all_result = await db.execute(select(User).where(User.role == UserRole.admin))
+        all_admins = all_result.scalars().all()
         total = len(all_admins)
         active_count = sum(1 for a in all_admins if a.is_active)
         revoked_count = total - active_count
 
+        # fetch all schools for these admins in one query — no N+1
+        school_ids = [a.school_id for a in admins if a.school_id]
+        schools_result = await db.execute(
+            select(School).where(School.school_id.in_(school_ids))
+        )
+        schools = schools_result.scalars().all()
+        school_map = {s.school_id: s for s in schools}
+
         result = []
         for admin in admins:
-            school = (
-                db.query(School).filter(School.school_id == admin.school_id).first()
-            )
+            school = school_map.get(admin.school_id)
             result.append(
                 {
                     "admin_id": str(admin.user_id),
@@ -174,9 +182,16 @@ class SudoAdminService:
             "admins": result,
         }
 
-    def get_admin_by_id(self, db: Session, admin_id: uuid.UUID) -> dict:
-        admin = get_user_or_404(db, admin_id, role=UserRole.admin)
-        school = db.query(School).filter(School.school_id == admin.school_id).first()
+    # -----------------------------------------------------------------------
+    # GET ADMIN BY ID
+    # -----------------------------------------------------------------------
+    async def get_admin_by_id(self, db: AsyncSession, admin_id: uuid.UUID) -> dict:
+        admin = await get_user_or_404(db, admin_id, role=UserRole.admin)
+
+        school_result = await db.execute(
+            select(School).where(School.school_id == admin.school_id)
+        )
+        school = school_result.scalar_one_or_none()
 
         return {
             "admin_id": str(admin.user_id),
@@ -202,20 +217,21 @@ class SudoAdminService:
         }
 
     # -----------------------------------------------------------------------
-    # GET SCHOOL WITH ADMIN DETAILS — for individual school view
+    # GET SCHOOL WITH ADMIN DETAILS
     # -----------------------------------------------------------------------
-    def get_school_with_admin(self, db: Session, school_id: uuid.UUID) -> dict:
-        school = get_school_or_404(db, school_id)
+    async def get_school_with_admin(
+        self, db: AsyncSession, school_id: uuid.UUID
+    ) -> dict:
+        school = await get_school_or_404(db, school_id)
 
-        admin = (
-            db.query(User)
-            .filter(
+        admin_result = await db.execute(
+            select(User).where(
                 User.school_id == school_id,
                 User.role == UserRole.admin,
-                User.is_active,
+                User.is_active == True,
             )
-            .first()
         )
+        admin = admin_result.scalar_one_or_none()
 
         return {
             "school": {
@@ -252,8 +268,8 @@ class SudoAdminService:
     # -----------------------------------------------------------------------
     # DEACTIVATE SCHOOL
     # -----------------------------------------------------------------------
-    def deactivate_school(self, db: Session, school_id: uuid.UUID) -> dict:
-        school = get_school_or_404(db, school_id)
+    async def deactivate_school(self, db: AsyncSession, school_id: uuid.UUID) -> dict:
+        school = await get_school_or_404(db, school_id)
 
         if not school.is_active:
             raise HTTPException(
@@ -263,12 +279,17 @@ class SudoAdminService:
 
         school.is_active = False
 
-        db.query(User).filter(
-            User.school_id == school_id,
-            User.role != UserRole.sudo_admin,
-        ).update({"is_active": False})
+        # bulk update all users in this school — async way
+        await db.execute(
+            update(User)
+            .where(
+                User.school_id == school_id,
+                User.role != UserRole.sudo_admin,
+            )
+            .values(is_active=False)
+        )
 
-        db.commit()
+        await db.commit()
         return {
             "message": f"School '{school.school_name}' deactivated. All associated users deactivated."
         }
@@ -276,22 +297,20 @@ class SudoAdminService:
     # -----------------------------------------------------------------------
     # LIST ALL SCHOOLS
     # -----------------------------------------------------------------------
-
-    def list_schools(self, db: Session) -> list[dict]:
-        schools = db.query(School).order_by(School.school_name).all()
+    async def list_schools(self, db: AsyncSession) -> list[dict]:
+        schools_result = await db.execute(select(School).order_by(School.school_name))
+        schools = schools_result.scalars().all()
 
         # count enrolled students per school in one query
-        enrollment_counts = (
-            db.query(
+        counts_result = await db.execute(
+            select(
                 Enrollment.school_id,
                 func.count(Enrollment.enrollment_id).label("count"),
             )
-            .filter(Enrollment.is_active == True)
+            .where(Enrollment.is_active == True)
             .group_by(Enrollment.school_id)
-            .all()
         )
-        # build lookup: school_id → student count
-        count_map = {str(e.school_id): e.count for e in enrollment_counts}
+        count_map = {str(row.school_id): row.count for row in counts_result.all()}
 
         return [
             {
@@ -313,35 +332,25 @@ class SudoAdminService:
     # -----------------------------------------------------------------------
     # GET SCHOOL BY ID
     # -----------------------------------------------------------------------
-    def get_school_by_id(self, db: Session, school_id: uuid.UUID) -> dict:
-        school = get_school_or_404(db, school_id)
+    async def get_school_by_id(self, db: AsyncSession, school_id: uuid.UUID) -> dict:
+        school = await get_school_or_404(db, school_id)
 
-        # student count
-        student_count = (
-            db.query(func.count(Enrollment.enrollment_id))
-            .filter(
+        # all three counts in one round trip
+        student_count_result = await db.execute(
+            select(func.count(Enrollment.enrollment_id)).where(
                 Enrollment.school_id == school_id,
                 Enrollment.is_active == True,
             )
-            .scalar()
         )
-
-        # teacher count
-        teacher_count = (
-            db.query(func.count(User.user_id))
-            .filter(
+        teacher_count_result = await db.execute(
+            select(func.count(User.user_id)).where(
                 User.school_id == school_id,
                 User.role == UserRole.teacher,
                 User.is_active == True,
             )
-            .scalar()
         )
-
-        # class count
-        class_count = (
-            db.query(func.count(Class.class_id))
-            .filter(Class.school_id == school_id)
-            .scalar()
+        class_count_result = await db.execute(
+            select(func.count(Class.class_id)).where(Class.school_id == school_id)
         )
 
         return {
@@ -360,8 +369,8 @@ class SudoAdminService:
             "is_active": school.is_active,
             "created_at": school.created_at,
             "stats": {
-                "students_enrolled": student_count or 0,
-                "teachers": teacher_count or 0,
-                "classes": class_count or 0,
+                "students_enrolled": student_count_result.scalar() or 0,
+                "teachers": teacher_count_result.scalar() or 0,
+                "classes": class_count_result.scalar() or 0,
             },
         }

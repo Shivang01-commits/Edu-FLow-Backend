@@ -23,7 +23,7 @@ from fastapi import (
     UploadFile,
     BackgroundTasks,
 )
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from src.db.main import get_db
 from src.db.models import User
 from src.services.db_services.teacher_service import TeacherService
@@ -44,19 +44,7 @@ presentation_service = PresentationService()
 router = APIRouter(prefix="/books", tags=["Global Books"])
 
 
-# INGEST — Upload PDF → AI generates all content → saved to DB in one step
-@router.post(
-    "/ingest-book",
-    status_code=201,
-    summary="Upload PDF, generate all content via AI, save to DB [sudo_admin only]",
-    description=(
-        "Full pipeline in one endpoint: "
-        "1. Extract text from PDF "
-        "2. AI generates summary, qa_bank, quiz, ppt_structure "
-        "3. Save everything to global books table "
-        "Returns 409 if book_name + class_grade + subject + chapter_number already exists."
-    ),
-)
+@router.post("/ingest-book", status_code=201)
 async def ingest_book(
     board: str = Form(...),
     file: UploadFile = File(...),
@@ -66,10 +54,9 @@ async def ingest_book(
     chapter_number: int = Form(...),
     chapter_title: str = Form(...),
     isbn: str = Form(""),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("sudo_admin")),
 ):
-    # save uploaded PDF to /tmp
     os.makedirs("/tmp", exist_ok=True)
     file_path = f"/tmp/{uuid.uuid4()}.pdf"
 
@@ -86,12 +73,9 @@ async def ingest_book(
         "isbn": isbn,
     }
 
-    # Step 1 — AI service ingests PDF and generates all 4 content types
-    # ingest_book returns: { summary, qa_bank, quiz, ppt_structure, scraped_chapter }
     generated = ai_service.ingest_book(file_path, metadata)
 
-    # Step 2 — Save generated content to DB
-    book = book_service.create_book(
+    book = await book_service.create_book(
         db=db,
         board=board,
         book_name=book_name,
@@ -113,73 +97,56 @@ async def ingest_book(
     }
 
 
-# READ Global Books
-@router.get(
-    "/",
-    summary="List global books [all roles]",
-)
-def list_books(
+@router.get("/")
+async def list_books(
     book_name: Optional[str] = None,
     class_grade: Optional[int] = None,
     subject: Optional[str] = None,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return book_service.list_books(
+    return await book_service.list_books(
         db, book_name=book_name, class_grade=class_grade, subject=subject
     )
 
 
-@router.get(
-    "/search",
-    summary="Get a chapter by book_name + class_grade + subject + chapter_number [all roles]",
-)
-def get_book_by_metadata(
+@router.get("/search")
+async def get_book_by_metadata(
     book_name: str,
     class_grade: int,
     subject: str,
     chapter_number: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return book_service.get_by_metadata(
+    return await book_service.get_by_metadata(
         db, book_name, class_grade, subject, chapter_number
     )
 
 
-@router.get(
-    "/isbn/{isbn}",
-    summary="Get all chapters of a textbook by ISBN [all roles]",
-)
-def list_chapters_by_isbn(
+@router.get("/isbn/{isbn}")
+async def list_chapters_by_isbn(
     isbn: str,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return book_service.list_chapters_by_isbn(db, isbn)
+    return await book_service.list_chapters_by_isbn(db, isbn)
 
 
-@router.get(
-    "/{book_id}",
-    summary="Get a global book by ID [all roles]",
-)
-def get_book(
+@router.get("/{book_id}")
+async def get_book(
     book_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return book_service.get_by_id(db, book_id)
+    return await book_service.get_by_id(db, book_id)
 
 
-# UPDATE / DELETE
-@router.patch(
-    "/{book_id}",
-    summary="Update specific fields of a global book [sudo_admin only]",
-)
-def update_book(
+@router.patch("/{book_id}")
+async def update_book(
     book_id: uuid.UUID,
     data: UpdateBookFieldsRequest,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("sudo_admin")),
 ):
     if not any(
@@ -194,7 +161,7 @@ def update_book(
     ):
         raise HTTPException(status_code=422, detail="No fields provided to update")
 
-    return book_service.update_book_fields(
+    return await book_service.update_book_fields(
         db=db,
         book_id=book_id,
         summary=data.summary,
@@ -206,16 +173,13 @@ def update_book(
     )
 
 
-@router.delete(
-    "/{book_id}",
-    summary="Delete a global book [sudo_admin only]",
-)
-def delete_book(
+@router.delete("/{book_id}")
+async def delete_book(
     book_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("sudo_admin")),
 ):
-    return book_service.delete_book(db, book_id)
+    return await book_service.delete_book(db, book_id)
 
 
 @router.post("/{book_id}/generate-ppt")
@@ -223,10 +187,10 @@ async def generate_book_ppt(
     book_id: uuid.UUID,
     data: GeneratePresentationRequest,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("sudo_admin")),
 ):
-    return presentation_service.initiate_ppt_generation(
+    return await presentation_service.initiate_ppt_generation(
         db=db,
         book_id=book_id,
         background_tasks=background_tasks,

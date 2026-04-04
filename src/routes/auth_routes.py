@@ -5,7 +5,7 @@ NOTE: Registration is NOT here.
 """
 
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from src.models.auth_schema import LoginRequest, ChangePasswordRequest
 from src.db.main import get_db
 from src.db.models import User
@@ -17,23 +17,31 @@ auth_service = AuthService()
 
 
 @router.post("/admin/login", summary="Admin login")
-def admin_login(data: LoginRequest, db: Session = Depends(get_db)):
-    return auth_service.login(db, data.email, data.password, required_role="admin")
+async def admin_login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
+    return await auth_service.login(
+        db, data.email, data.password, required_role="admin"
+    )
 
 
 @router.post("/sudo-admin/login", summary="Sudo admin login")
-def sudo_admin_login(data: LoginRequest, db: Session = Depends(get_db)):
-    return auth_service.login(db, data.email, data.password, required_role="sudo_admin")
+async def sudo_admin_login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
+    return await auth_service.login(
+        db, data.email, data.password, required_role="sudo_admin"
+    )
 
 
 @router.post("/teacher/login", summary="Teacher login")
-def teacher_login(data: LoginRequest, db: Session = Depends(get_db)):
-    return auth_service.login(db, data.email, data.password, required_role="teacher")
+async def teacher_login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
+    return await auth_service.login(
+        db, data.email, data.password, required_role="teacher"
+    )
 
 
 @router.post("/student/login", summary="Student login")
-def student_login(data: LoginRequest, db: Session = Depends(get_db)):
-    return auth_service.login(db, data.email, data.password, required_role="student")
+async def student_login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
+    return await auth_service.login(
+        db, data.email, data.password, required_role="student"
+    )
 
 
 @router.post(
@@ -44,10 +52,10 @@ def student_login(data: LoginRequest, db: Session = Depends(get_db)):
         "Returns a fresh access token. Refresh token itself is NOT rotated."
     ),
 )
-def refresh(
+async def refresh(
     current_user: User = Depends(get_refresh_token_user),
 ):
-    return auth_service.refresh_access_token(current_user)
+    return auth_service.refresh_access_token(current_user)  # no await — no DB access
 
 
 @router.get(
@@ -55,10 +63,10 @@ def refresh(
     summary="Get current logged-in user profile",
     description="Returns user details from the access token. Frontend calls this on page load.",
 )
-def get_me(
+async def get_me(
     current_user: User = Depends(get_current_user),
 ):
-    return auth_service.get_profile(current_user)
+    return auth_service.get_profile(current_user)  # no await — no DB access
 
 
 @router.post(
@@ -69,11 +77,11 @@ def get_me(
         "Sets is_password_changed = True after success — removes the banner on frontend."
     ),
 )
-def change_password(
+async def change_password(
     data: ChangePasswordRequest,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return auth_service.change_password(
+    return await auth_service.change_password(
         db, current_user, data.old_password, data.new_password
     )

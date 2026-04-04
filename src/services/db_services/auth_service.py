@@ -11,7 +11,8 @@ Note: Registration is handled by admin_service.py, not here.
 """
 
 import bcrypt as bcrypt_lib
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from fastapi import HTTPException, status
 
 from src.db.models import User
@@ -45,10 +46,17 @@ class AuthService:
     # e.g. admin_access_token, admin_refresh_token
     # Frontend checks is_password_changed to show "please change password" banner.
     # -----------------------------------------------------------------------
-    def login(
-        self, db: Session, email: str, password: str, required_role: str | None = None
+    async def login(
+        self,
+        db: AsyncSession,
+        email: str,
+        password: str,
+        required_role: str | None = None,
     ) -> dict:
-        user = db.query(User).filter(User.email == email.lower().strip()).first()
+        result = await db.execute(
+            select(User).where(User.email == email.lower().strip())
+        )
+        user = result.scalar_one_or_none()
 
         if not user or not verify_password(password, user.password_hash):
             raise HTTPException(
@@ -63,7 +71,6 @@ class AuthService:
             )
 
         user_role = user.role.value
-        access_token_key, refresh_token_key = _token_keys(user_role)
 
         if required_role and user_role != required_role:
             raise HTTPException(
@@ -71,12 +78,7 @@ class AuthService:
                 detail="Invalid email or password",  # intentionally vague, don't leak role info
             )
 
-        if not user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Your account has been deactivated. Contact your school administrator.",
-            )
-
+        access_token_key, refresh_token_key = _token_keys(user_role)
         access_token = create_access_token(
             user_id=str(user.user_id),
             role=user_role,
@@ -102,6 +104,7 @@ class AuthService:
 
     # -----------------------------------------------------------------------
     # REFRESH — issue new access token using refresh token
+    # No DB access, stays as plain def
     # -----------------------------------------------------------------------
     def refresh_access_token(self, user: User) -> dict:
         user_role = user.role.value
@@ -113,12 +116,13 @@ class AuthService:
             school_id=str(user.school_id) if user.school_id else None,
         )
         return {
-            access_token_key: access_token,  # e.g. "teacher_access_token"
+            access_token_key: access_token,
             "token_type": "bearer",
         }
 
     # -----------------------------------------------------------------------
     # GET PROFILE — /auth/me
+    # No DB access, stays as plain def
     # -----------------------------------------------------------------------
     def get_profile(self, user: User) -> dict:
         return {
@@ -137,9 +141,9 @@ class AuthService:
     # CHANGE PASSWORD
     # Sets is_password_changed = True after successful change.
     # -----------------------------------------------------------------------
-    def change_password(
+    async def change_password(
         self,
-        db: Session,
+        db: AsyncSession,
         user: User,
         old_password: str,
         new_password: str,
@@ -158,6 +162,6 @@ class AuthService:
 
         user.password_hash = hash_password(new_password)
         user.is_password_changed = True
-        db.commit()
+        await db.commit()
 
         return {"message": "Password changed successfully"}

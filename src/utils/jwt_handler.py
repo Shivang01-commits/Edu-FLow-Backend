@@ -3,7 +3,8 @@ import os
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from src.db.main import get_db
 from src.db.models import User
 from datetime import datetime, timezone, timedelta
@@ -57,6 +58,7 @@ def decode_token(token: str) -> dict:
     """
     Decodes and validates a JWT.
     Raises 401 if expired or tampered with.
+    stays as plain def — no DB access, no async needed.
     """
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -69,9 +71,9 @@ def decode_token(token: str) -> dict:
         )
 
 
-def get_current_user(
+async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> User:
     """
     Inject this into any route that requires a logged-in user.
@@ -79,13 +81,12 @@ def get_current_user(
 
     Usage:
         @router.get("/something")
-        def my_route(current_user: User = Depends(get_current_user))
+        async def my_route(current_user: User = Depends(get_current_user))
             ...
     """
     token = credentials.credentials
     payload = decode_token(token)
 
-    # Make sure it's an access token, not a refresh token
     if payload.get("type") != "access":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -99,7 +100,9 @@ def get_current_user(
             detail="Token payload missing user id",
         )
 
-    user = db.query(User).filter(User.user_id == user_id).first()
+    result = await db.execute(select(User).where(User.user_id == user_id))
+    user = result.scalar_one_or_none()
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -122,11 +125,11 @@ def require_role(*roles: str):
 
     Usage:
         @router.post("/admin-only")
-        def my_route(current_user: User = Depends(require_role("sudo_admin", "admin"))):
+        async def my_route(current_user: User = Depends(require_role("sudo_admin", "admin"))):
             ...
     """
 
-    def role_checker(current_user: User = Depends(get_current_user)) -> User:
+    async def role_checker(current_user: User = Depends(get_current_user)) -> User:
         if current_user.role.value not in roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -137,9 +140,9 @@ def require_role(*roles: str):
     return role_checker
 
 
-def get_refresh_token_user(
+async def get_refresh_token_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> User:
     """
     Used only in the /auth/refresh endpoint.
@@ -155,7 +158,14 @@ def get_refresh_token_user(
         )
 
     user_id = payload.get("sub")
-    user = db.query(User).filter(User.user_id == user_id).first()
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token payload missing user id",
+        )
+
+    result = await db.execute(select(User).where(User.user_id == user_id))
+    user = result.scalar_one_or_none()
 
     if not user or not user.is_active:
         raise HTTPException(

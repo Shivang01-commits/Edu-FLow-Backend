@@ -8,8 +8,10 @@ import openpyxl
 import csv
 import io
 from datetime import datetime
-from fastapi import HTTPException, status, File, UploadFile
-from sqlalchemy.orm import Session
+from fastapi import HTTPException, status, UploadFile
+from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func
 
 from src.db.models import (
     User,
@@ -56,9 +58,9 @@ class AdminService:
     # -----------------------------------------------------------------------
     # REGISTER TEACHER
     # -----------------------------------------------------------------------
-    def register_teacher(
+    async def register_teacher(
         self,
-        db: Session,
+        db: AsyncSession,
         admin: User,
         email: str,
         first_name: str,
@@ -69,9 +71,9 @@ class AdminService:
         salary: Decimal,
         join_date: date,
     ) -> dict:
-        check_email_unique(db, email)
+        await check_email_unique(db, email)
 
-        school = get_school_or_404(db, admin.school_id)
+        school = await get_school_or_404(db, admin.school_id)
         raw_password = generate_random_password()
 
         teacher = User(
@@ -87,7 +89,7 @@ class AdminService:
             is_password_changed=False,
         )
         db.add(teacher)
-        db.flush()
+        await db.flush()
 
         profile = TeacherProfile(
             teacher_id=teacher.user_id,
@@ -97,9 +99,9 @@ class AdminService:
             join_date=join_date,
         )
         db.add(profile)
-        db.commit()
-        db.refresh(teacher)
-        db.refresh(profile)
+        await db.commit()
+        await db.refresh(teacher)
+        await db.refresh(profile)
 
         send_teacher_welcome_email(
             to_email=email,
@@ -117,9 +119,9 @@ class AdminService:
             "join_date": str(profile.join_date),
         }
 
-    def register_student(
+    async def register_student(
         self,
-        db: Session,
+        db: AsyncSession,
         admin: User,
         email: str,
         first_name: str,
@@ -131,18 +133,17 @@ class AdminService:
         parent_name: str,
         parent_phone: str,
     ) -> dict:
-        check_email_unique(db, email)
+        await check_email_unique(db, email)
 
         # lookup class by grade + section within admin's school
-        class_ = (
-            db.query(Class)
-            .filter(
+        result = await db.execute(
+            select(Class).where(
                 Class.school_id == admin.school_id,
                 Class.grade_level == class_grade,
                 Class.section == section.upper().strip(),
             )
-            .first()
         )
+        class_ = result.scalar_one_or_none()
         if not class_:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -150,23 +151,22 @@ class AdminService:
             )
 
         # check admission_number unique within this school
-        existing_admission = (
-            db.query(Enrollment)
+        existing_admission = await db.execute(
+            select(Enrollment)
             .join(User, Enrollment.student_id == User.user_id)
-            .filter(
+            .where(
                 User.school_id == admin.school_id,
                 Enrollment.admission_number == admission_number,
                 Enrollment.is_active == True,
             )
-            .first()
         )
-        if existing_admission:
+        if existing_admission.scalar_one_or_none():
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Admission number {admission_number} already exists in your school",
             )
 
-        school = get_school_or_404(db, admin.school_id)
+        school = await get_school_or_404(db, admin.school_id)
         raw_password = generate_random_password()
 
         student = User(
@@ -182,7 +182,7 @@ class AdminService:
             is_password_changed=False,
         )
         db.add(student)
-        db.flush()
+        await db.flush()
 
         enrollment = Enrollment(
             school_id=admin.school_id,
@@ -197,8 +197,8 @@ class AdminService:
             fee_status="pending",
         )
         db.add(enrollment)
-        db.commit()
-        db.refresh(student)
+        await db.commit()
+        await db.refresh(student)
 
         send_student_welcome_email(
             to_email=email,
@@ -218,23 +218,21 @@ class AdminService:
             "admission_number": admission_number,
         }
 
-    def create_class(
+    async def create_class(
         self,
-        db: Session,
+        db: AsyncSession,
         admin: User,
         grade_level: int,
         section: Optional[str] = None,
     ) -> Class:
-        existing = (
-            db.query(Class)
-            .filter(
+        result = await db.execute(
+            select(Class).where(
                 Class.school_id == admin.school_id,
                 Class.grade_level == grade_level,
                 Class.section == (section.strip() if section else None),
             )
-            .first()
         )
-        if existing:
+        if result.scalar_one_or_none():
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Class '{grade_level} {section or ''}' already exists in your school",
@@ -246,23 +244,27 @@ class AdminService:
             section=section.strip() if section else None,
         )
         db.add(new_class)
-        db.commit()
-        db.refresh(new_class)
+        await db.commit()
+        await db.refresh(new_class)
         return new_class
 
     # -----------------------------------------------------------------------
     # ASSIGN TEACHER TO CLASS
     # -----------------------------------------------------------------------
-    def assign_teacher_to_class(
+
+    async def assign_teacher_to_class(
         self,
-        db: Session,
+        db: AsyncSession,
         admin: User,
         class_id: uuid.UUID,
         teacher_id: uuid.UUID,
         subject: Optional[str] = None,
         is_classroom_teacher: bool = False,
     ) -> ClassTeacher:
-        teacher = get_user_or_404(db, teacher_id)
+        # normalize subject once — all comparisons and storage use this
+        subject = subject.lower().strip() if subject else None
+
+        teacher = await get_user_or_404(db, teacher_id)
         if teacher.role != UserRole.teacher:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="User is not a teacher"
@@ -273,23 +275,21 @@ class AdminService:
                 detail="Teacher does not belong to your school",
             )
 
-        class_ = get_class_or_404(db, class_id)
+        class_ = await get_class_or_404(db, class_id)
         if class_.school_id != admin.school_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Class does not belong to your school",
             )
 
-        existing = (
-            db.query(ClassTeacher)
-            .filter(
+        result = await db.execute(
+            select(ClassTeacher).where(
                 ClassTeacher.class_id == class_id,
                 ClassTeacher.teacher_id == teacher_id,
                 ClassTeacher.subject == subject,
             )
-            .first()
         )
-        if existing:
+        if result.scalar_one_or_none():
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Teacher is already assigned to this class for this subject",
@@ -299,28 +299,32 @@ class AdminService:
             school_id=admin.school_id,
             class_id=class_id,
             teacher_id=teacher_id,
-            subject=subject,
+            subject=subject,  # stored lowercase
             is_classroom_teacher=is_classroom_teacher,
         )
         db.add(assignment)
-        db.commit()
-        db.refresh(assignment)
+        await db.commit()
+        await db.refresh(assignment)
         return assignment
 
     # -----------------------------------------------------------------------
     # LIST operations
     # -----------------------------------------------------------------------
-    def list_teachers(self, db: Session, admin: User) -> list[dict]:
-        teachers = (
-            db.query(User)
-            .filter(
+    async def list_teachers(self, db: AsyncSession, admin: User) -> list[dict]:
+        result = await db.execute(
+            select(User)
+            .where(
                 User.school_id == admin.school_id,
                 User.role == UserRole.teacher,
                 User.is_active == True,
             )
+            .options(
+                selectinload(User.teacher_profile)
+            )  # ← replaces lazy load on t.teacher_profile
             .order_by(User.first_name)
-            .all()
         )
+        teachers = result.scalars().all()
+
         return [
             {
                 "teacher_id": str(t.user_id),
@@ -343,28 +347,28 @@ class AdminService:
             for t in teachers
         ]
 
-    def list_students(self, db: Session, admin: User) -> list[dict]:
-        students = (
-            db.query(User)
-            .filter(
+    async def list_students(self, db: AsyncSession, admin: User) -> list[dict]:
+        result = await db.execute(
+            select(User)
+            .where(
                 User.school_id == admin.school_id,
                 User.role == UserRole.student,
                 User.is_active == True,
             )
             .order_by(User.first_name)
-            .all()
         )
+        students = result.scalars().all()
 
         # fetch all active enrollments for these students in one query
         student_ids = [s.user_id for s in students]
-        enrollments = (
-            db.query(Enrollment)
-            .filter(
+        enrollment_result = await db.execute(
+            select(Enrollment).where(
                 Enrollment.student_id.in_(student_ids),
                 Enrollment.is_active == True,
             )
-            .all()
         )
+        enrollments = enrollment_result.scalars().all()
+
         # build lookup dict: student_id → enrollment
         enrollment_map = {e.student_id: e for e in enrollments}
 
@@ -394,80 +398,93 @@ class AdminService:
             for s in students
         ]
 
-    def list_classes(self, db: Session, admin: User) -> list[Class]:
-        return (
-            db.query(Class)
-            .filter(Class.school_id == admin.school_id)
+    async def list_classes(self, db: AsyncSession, admin: User) -> list[dict]:
+        result = await db.execute(
+            select(Class)
+            .where(Class.school_id == admin.school_id)
             .order_by(Class.grade_level, Class.section)
-            .all()
         )
+        classes = result.scalars().all()
+        return [
+            {
+                "class_id": str(c.class_id),
+                "grade_level": c.grade_level,
+                "section": c.section,
+                "created_at": c.created_at,
+            }
+            for c in classes
+        ]
 
-    def list_students_in_class(
-        self, db: Session, admin: User, class_id: uuid.UUID
+    async def list_students_in_class(
+        self, db: AsyncSession, admin: User, class_id: uuid.UUID
     ) -> list[dict]:
-        class_ = get_class_or_404(db, class_id)
+        class_ = await get_class_or_404(db, class_id)
         if class_.school_id != admin.school_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Class does not belong to your school",
             )
 
-        enrollments = (
-            db.query(Enrollment)
-            .filter(
+        # fetch enrollments with students in one query — avoids N+1
+        result = await db.execute(
+            select(Enrollment)
+            .where(
                 Enrollment.class_id == class_id,
                 Enrollment.is_active == True,
             )
-            .all()
+            .options(
+                joinedload(Enrollment.student)
+            )  # ← replaces per-enrollment student query
         )
+        enrollments = result.scalars().all()
 
-        result = []
-        for e in enrollments:
-            student = db.query(User).filter(User.user_id == e.student_id).first()
-            if student:
-                result.append(
-                    {
-                        "student_id": str(student.user_id),
-                        "first_name": student.first_name,
-                        "last_name": student.last_name,
-                        "email": student.email,
-                        "enrollment_date": e.enrollment_date,
-                        "is_active": e.is_active,
-                    }
-                )
-        return result
+        return [
+            {
+                "student_id": str(e.student.user_id),
+                "first_name": e.student.first_name,
+                "last_name": e.student.last_name,
+                "email": e.student.email,
+                "enrollment_date": e.enrollment_date,
+                "is_active": e.is_active,
+            }
+            for e in enrollments
+        ]
 
     # -----------------------------------------------------------------------
     # DEACTIVATE USER
     # -----------------------------------------------------------------------
-    def deactivate_user(self, db: Session, admin: User, user_id: uuid.UUID) -> dict:
-        user = get_user_or_404(db, user_id)
+    async def deactivate_user(
+        self, db: AsyncSession, admin: User, user_id: uuid.UUID
+    ) -> dict:
+        user = await get_user_or_404(db, user_id)
         if user.school_id != admin.school_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User does not belong to your school",
             )
         user.is_active = False
-        db.commit()
+        await db.commit()
         return {"message": f"User {user.email} has been deactivated"}
 
     # -----------------------------------------------------------------------
     # RESEND PASSWORD
     # -----------------------------------------------------------------------
-    def resend_password(self, db: Session, admin: User, user_id: uuid.UUID) -> dict:
-        user = get_user_or_404(db, user_id)
+    async def resend_password(
+        self, db: AsyncSession, admin: User, user_id: uuid.UUID
+    ) -> dict:
+        user = await get_user_or_404(db, user_id)
         if user.school_id != admin.school_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User does not belong to your school",
             )
 
-        school = get_school_or_404(db, admin.school_id)
+        school = await get_school_or_404(db, admin.school_id)
         raw_password = generate_random_password()
 
         user.password_hash = hash_password(raw_password)
         user.is_password_changed = False
-        db.commit()
+        await db.commit()
 
         if user.role == UserRole.teacher:
             send_teacher_welcome_email(
@@ -487,10 +504,10 @@ class AdminService:
 
         return {"message": f"New password generated and sent to {user.email}"}
 
-    def get_student_by_id(
-        self, db: Session, admin: User, student_id: uuid.UUID
+    async def get_student_by_id(
+        self, db: AsyncSession, admin: User, student_id: uuid.UUID
     ) -> dict:
-        student = get_user_or_404(db, student_id)
+        student = await get_user_or_404(db, student_id)
 
         if student.role != UserRole.student:
             raise HTTPException(
@@ -503,14 +520,13 @@ class AdminService:
                 detail="This student does not belong to your school",
             )
 
-        enrollment = (
-            db.query(Enrollment)
-            .filter(
+        result = await db.execute(
+            select(Enrollment).where(
                 Enrollment.student_id == student_id,
                 Enrollment.is_active == True,
             )
-            .first()
         )
+        enrollment = result.scalar_one_or_none()
 
         return {
             "student_id": str(student.user_id),
@@ -536,10 +552,10 @@ class AdminService:
             else None,
         }
 
-    def get_teacher_by_id(
-        self, db: Session, admin: User, teacher_id: uuid.UUID
+    async def get_teacher_by_id(
+        self, db: AsyncSession, admin: User, teacher_id: uuid.UUID
     ) -> dict:
-        teacher = get_user_or_404(db, teacher_id)
+        teacher = await get_user_or_404(db, teacher_id)
 
         if teacher.role != UserRole.teacher:
             raise HTTPException(
@@ -553,29 +569,24 @@ class AdminService:
             )
 
         # fetch profile
-        profile = (
-            db.query(TeacherProfile)
-            .filter(TeacherProfile.teacher_id == teacher_id)
-            .first()
+        profile_result = await db.execute(
+            select(TeacherProfile).where(TeacherProfile.teacher_id == teacher_id)
         )
+        profile = profile_result.scalar_one_or_none()
 
-        # fetch assigned classes — one query, no N+1
-        assignments = (
-            db.query(ClassTeacher).filter(ClassTeacher.teacher_id == teacher_id).all()
+        # fetch assignments with classes eagerly loaded — no N+1
+        assignments_result = await db.execute(
+            select(ClassTeacher)
+            .where(ClassTeacher.teacher_id == teacher_id)
+            .options(joinedload(ClassTeacher.class_))
         )
-        class_ids = [ct.class_id for ct in assignments]
-        classes_db = db.query(Class).filter(Class.class_id.in_(class_ids)).all()
-        class_map = {c.class_id: c for c in classes_db}
+        assignments = assignments_result.scalars().all()
 
         assigned_classes = [
             {
                 "class_id": str(ct.class_id),
-                "grade_level": class_map[ct.class_id].grade_level
-                if ct.class_id in class_map
-                else None,
-                "section": class_map[ct.class_id].section
-                if ct.class_id in class_map
-                else None,
+                "grade_level": ct.class_.grade_level if ct.class_ else None,
+                "section": ct.class_.section if ct.class_ else None,
                 "subject": ct.subject,
                 "is_classroom_teacher": ct.is_classroom_teacher,
                 "assigned_date": ct.assigned_date,
@@ -604,8 +615,10 @@ class AdminService:
             "total_classes": len(assigned_classes),
         }
 
-    def get_class_by_id(self, db: Session, admin: User, class_id: uuid.UUID) -> dict:
-        class_ = get_class_or_404(db, class_id)
+    async def get_class_by_id(
+        self, db: AsyncSession, admin: User, class_id: uuid.UUID
+    ) -> dict:
+        class_ = await get_class_or_404(db, class_id)
 
         if class_.school_id != admin.school_id:
             raise HTTPException(
@@ -614,23 +627,22 @@ class AdminService:
             )
 
         # count enrolled students
-        student_count = (
-            db.query(Enrollment)
-            .filter(
+        count_result = await db.execute(
+            select(func.count(Enrollment.enrollment_id)).where(
                 Enrollment.class_id == class_id,
                 Enrollment.is_active == True,
             )
-            .count()
         )
+        student_count = count_result.scalar()
 
         # get assigned teachers
-        assignments = (
-            db.query(ClassTeacher).filter(ClassTeacher.class_id == class_id).all()
+        assignments_result = await db.execute(
+            select(ClassTeacher).where(ClassTeacher.class_id == class_id)
         )
+        assignments = assignments_result.scalars().all()
 
         return {
             "class_id": str(class_.class_id),
-            # "class_name": class_.class_name,
             "grade_level": class_.grade_level,
             "section": class_.section,
             "school_id": str(class_.school_id),
@@ -647,8 +659,10 @@ class AdminService:
             ],
         }
 
-    def delete_class(self, db: Session, admin: User, class_id: uuid.UUID) -> dict:
-        class_ = get_class_or_404(db, class_id)
+    async def delete_class(
+        self, db: AsyncSession, admin: User, class_id: uuid.UUID
+    ) -> dict:
+        class_ = await get_class_or_404(db, class_id)
 
         if class_.school_id != admin.school_id:
             raise HTTPException(
@@ -657,33 +671,28 @@ class AdminService:
             )
 
         # block deletion if students are actively enrolled
-        active_enrollments = (
-            db.query(Enrollment)
-            .filter(
+        count_result = await db.execute(
+            select(func.count(Enrollment.enrollment_id)).where(
                 Enrollment.class_id == class_id,
                 Enrollment.is_active == True,
             )
-            .count()
         )
+        active_enrollments = count_result.scalar()
+
         if active_enrollments > 0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Cannot delete class — {active_enrollments} student(s) are still enrolled. Remove them first.",
             )
 
-        db.delete(class_)
-        db.commit()
+        await db.delete(class_)
+        await db.commit()
         return {
             "message": f"Class '{class_.grade_level} {class_.section or ''}' deleted successfully."
         }
 
     def _validate_and_map_columns(self, headers: List[str]) -> dict:
-        """
-        Validate column headers and return mapping of expected columns to their indices.
-        Flexible matching: case-insensitive, ignores extra columns.
-        """
-
-        # Expected columns with all possible variants
+        # no DB access — stays as plain def, no changes needed
         expected_columns = {
             "admission_number": [
                 "admission number",
@@ -712,32 +721,19 @@ class AdminService:
             "section": ["section", "class section", "class_section"],
         }
 
-        # Convert headers to lowercase and strip whitespace
         headers_lower = [h.lower().strip() if h else "" for h in headers]
-
-        print(f"DEBUG: Headers found: {headers_lower}")  # Debug line
-
-        # Create mapping: expected_col -> actual_index
         column_mapping = {}
         matched_cols = set()
 
         for expected_col, variants in expected_columns.items():
             for idx, header in enumerate(headers_lower):
-                # Exact match in variants list
                 if header in variants and idx not in matched_cols:
                     column_mapping[expected_col] = idx
                     matched_cols.add(idx)
-                    print(
-                        f"DEBUG: Matched '{expected_col}' to index {idx} (header: '{header}')"
-                    )  # Debug
                     break
 
-        # Check if all required columns are found
         required_cols = ["first_name", "email", "class_grade", "section"]
         missing_cols = [col for col in required_cols if col not in column_mapping]
-
-        print(f"DEBUG: Column mapping: {column_mapping}")  # Debug
-        print(f"DEBUG: Missing cols: {missing_cols}")  # Debug
 
         if missing_cols:
             raise HTTPException(
@@ -748,7 +744,7 @@ class AdminService:
         return column_mapping
 
     async def bulk_enroll_students(
-        self, db: Session, admin: User, file: UploadFile
+        self, db: AsyncSession, admin: User, file: UploadFile
     ) -> dict:
 
         # Step 1: Validate file type
@@ -767,17 +763,13 @@ class AdminService:
 
         # Step 3: Parse file and validate columns
         rows = []
-        column_mapping = None
 
         if file_type == "xlsx":
             workbook = openpyxl.load_workbook(io.BytesIO(content))
             worksheet = workbook.active
-
-            # Get headers from first row
             headers = [cell.value for cell in worksheet[1]]
             column_mapping = self._validate_and_map_columns(headers)
 
-            # Parse data rows
             for row_num, row in enumerate(
                 worksheet.iter_rows(min_row=2, values_only=True), start=2
             ):
@@ -799,42 +791,48 @@ class AdminService:
         else:  # CSV
             content_str = content.decode("utf-8")
             reader = csv.reader(io.StringIO(content_str))
-
-            # Get headers from first row
             headers = next(reader)
             column_mapping = self._validate_and_map_columns(headers)
 
-            # Parse data rows
             for row_num, row in enumerate(reader, start=2):
                 rows.append(
                     {
                         "row_number": row_num,
                         "admission_number": row[column_mapping.get("admission_number")]
-                        if column_mapping.get("admission_number") < len(row)
+                        if column_mapping.get("admission_number") is not None
+                        and column_mapping.get("admission_number") < len(row)
                         else None,
                         "first_name": row[column_mapping.get("first_name")]
-                        if column_mapping.get("first_name") < len(row)
+                        if column_mapping.get("first_name") is not None
+                        and column_mapping.get("first_name") < len(row)
                         else None,
                         "last_name": row[column_mapping.get("last_name")]
-                        if column_mapping.get("last_name") < len(row)
+                        if column_mapping.get("last_name") is not None
+                        and column_mapping.get("last_name") < len(row)
                         else None,
                         "date_of_birth": row[column_mapping.get("date_of_birth")]
-                        if column_mapping.get("date_of_birth") < len(row)
+                        if column_mapping.get("date_of_birth") is not None
+                        and column_mapping.get("date_of_birth") < len(row)
                         else None,
                         "email": row[column_mapping.get("email")]
-                        if column_mapping.get("email") < len(row)
+                        if column_mapping.get("email") is not None
+                        and column_mapping.get("email") < len(row)
                         else None,
                         "parent_name": row[column_mapping.get("parent_name")]
-                        if column_mapping.get("parent_name") < len(row)
+                        if column_mapping.get("parent_name") is not None
+                        and column_mapping.get("parent_name") < len(row)
                         else None,
                         "parent_phone": row[column_mapping.get("parent_phone")]
-                        if column_mapping.get("parent_phone") < len(row)
+                        if column_mapping.get("parent_phone") is not None
+                        and column_mapping.get("parent_phone") < len(row)
                         else None,
                         "class_grade": row[column_mapping.get("class_grade")]
-                        if column_mapping.get("class_grade") < len(row)
+                        if column_mapping.get("class_grade") is not None
+                        and column_mapping.get("class_grade") < len(row)
                         else None,
                         "section": row[column_mapping.get("section")]
-                        if column_mapping.get("section") < len(row)
+                        if column_mapping.get("section") is not None
+                        and column_mapping.get("section") < len(row)
                         else None,
                     }
                 )
@@ -847,7 +845,6 @@ class AdminService:
         for row in rows:
             error = None
 
-            # Check required fields
             if (
                 not row["first_name"]
                 or not row["email"]
@@ -856,16 +853,13 @@ class AdminService:
             ):
                 error = "Missing required fields"
 
-            # Check email format
             elif not self._is_valid_email(row["email"]):
                 error = "Invalid email format"
 
-            # Check DOB format (dd-mm-yyyy)
             elif not self._is_valid_dob(row["date_of_birth"]):
                 error = "Invalid DOB format (use dd-mm-yyyy)"
 
-            # Check if email already enrolled
-            elif self._email_already_enrolled(db, row["email"]):
+            elif await self._email_already_enrolled(db, row["email"]):
                 skipped_rows.append(
                     {
                         "row_number": row["row_number"],
@@ -875,8 +869,9 @@ class AdminService:
                 )
                 continue
 
-            # Check if admission_number already enrolled
-            elif row["admission_number"] and self._admission_number_already_enrolled(
+            elif row[
+                "admission_number"
+            ] and await self._admission_number_already_enrolled(
                 db, admin, row["admission_number"]
             ):
                 skipped_rows.append(
@@ -888,8 +883,9 @@ class AdminService:
                 )
                 continue
 
-            # Check if class+section exists
-            elif not self._class_section_exists(db, row["class_grade"], row["section"]):
+            elif not await self._class_section_exists(
+                db, row["class_grade"], row["section"]
+            ):
                 error = f"Class {row['class_grade']} Section {row['section']} does not exist"
 
             if error:
@@ -914,8 +910,7 @@ class AdminService:
 
         for row in valid_rows:
             try:
-                # Call existing register_student method for each valid row
-                self.register_student(
+                await self.register_student(  # ← await since register_student is now async
                     db=db,
                     admin=admin,
                     email=row["email"],
@@ -930,7 +925,6 @@ class AdminService:
                 )
                 enrolled_count += 1
             except Exception as e:
-                # If enrollment fails, add to failed rows
                 failed_rows.append({"row_number": row["row_number"], "reason": str(e)})
 
         return {
@@ -943,74 +937,72 @@ class AdminService:
             "failed_rows": failed_rows,
         }
 
-    # Helper methods
+    # -----------------------------------------------------------------------
+    # Helper methods — all DB helpers become async
+    # -----------------------------------------------------------------------
     def _is_valid_email(self, email: str) -> bool:
+        # no DB access — stays plain def
         import re
 
         pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
         return re.match(pattern, email) is not None
 
     def _is_valid_dob(self, dob) -> bool:
+        # no DB access — stays plain def
         if dob is None:
             return False
         try:
             if isinstance(dob, str):
                 datetime.strptime(dob, "%d-%m-%Y")
             return True
-        except:
+        except Exception:
             return False
 
     def _parse_dob(self, dob) -> datetime:
+        # no DB access — stays plain def
         if isinstance(dob, str):
             return datetime.strptime(dob, "%d-%m-%Y").date()
         return dob
 
-    def _email_already_enrolled(self, db: Session, email: str) -> bool:
-        from src.db.models import User, Enrollment
-
-        user = db.query(User).filter(User.email == email).first()
+    async def _email_already_enrolled(self, db: AsyncSession, email: str) -> bool:
+        user_result = await db.execute(select(User).where(User.email == email))
+        user = user_result.scalar_one_or_none()
         if not user:
             return False
-        enrollment = (
-            db.query(Enrollment)
-            .filter(Enrollment.student_id == user.user_id, Enrollment.is_active == True)
-            .first()
+
+        enrollment_result = await db.execute(
+            select(Enrollment).where(
+                Enrollment.student_id == user.user_id,
+                Enrollment.is_active == True,
+            )
         )
-        return enrollment is not None
+        return enrollment_result.scalar_one_or_none() is not None
 
-    def _admission_number_already_enrolled(
-        self, db: Session, admin: User, admission_number: int
+    async def _admission_number_already_enrolled(
+        self, db: AsyncSession, admin: User, admission_number: int
     ) -> bool:
-        # Step 1: Get admin's school_id
-        admin_school_id = admin.school_id
-
-        if not admin_school_id:
+        if not admin.school_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Admin is not associated with any school",
             )
 
-        # Step 2: Check if admission_number exists in this school's enrollments
-        enrollment = (
-            db.query(Enrollment)
-            .filter(
+        result = await db.execute(
+            select(Enrollment).where(
                 Enrollment.admission_number == admission_number,
-                Enrollment.school_id == admin_school_id,
+                Enrollment.school_id == admin.school_id,
                 Enrollment.is_active == True,
             )
-            .first()
         )
+        return result.scalar_one_or_none() is not None
 
-        return enrollment is not None
-
-    def _class_section_exists(
-        self, db: Session, class_grade: int, section: str
+    async def _class_section_exists(
+        self, db: AsyncSession, class_grade: int, section: str
     ) -> bool:
-        from src.db.models import Class
-
-        class_record = (
-            db.query(Class)
-            .filter(Class.grade_level == class_grade, Class.section == section.upper())
-            .first()
+        result = await db.execute(
+            select(Class).where(
+                Class.grade_level == class_grade,
+                Class.section == section.upper(),
+            )
         )
-        return class_record is not None
+        return result.scalar_one_or_none() is not None

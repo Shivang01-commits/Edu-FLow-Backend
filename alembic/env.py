@@ -5,7 +5,14 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 from alembic import context
 from dotenv import load_dotenv
-from src.db.main import Base, DATABASE_URL
+
+# ── make src/ importable ───────────────────────────────────────────
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+load_dotenv()
+
+# CHANGED: import SYNC_DATABASE_URL instead of DATABASE_URL
+from src.db.main import Base, SYNC_DATABASE_URL
 from src.db.models import (
     School,
     User,
@@ -16,18 +23,11 @@ from src.db.models import (
     ClassChapter,
     Quiz,
     TeacherProfile,
-    Presentation,
 )
 
-# ── make src/ importable ───────────────────────────────────────────
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
-load_dotenv()
-
-# ── import Base and every model so Alembic can detect them ────────
-
 config = context.config
-config.set_main_option("sqlalchemy.url", DATABASE_URL)
+
+config.set_main_option("sqlalchemy.url", SYNC_DATABASE_URL)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
