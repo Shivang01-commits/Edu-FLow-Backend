@@ -50,6 +50,7 @@ class PresentationService:
                 "book_id": str(book.book_id),
                 "ppt_url": book.ppt_url,
                 "ppt_status": "ready",
+                "message": "ppt already generated",
             }
 
         await db.execute(
