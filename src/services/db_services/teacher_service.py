@@ -480,3 +480,43 @@ class TeacherService:
                 for ch in chapters
             ],
         }
+
+    async def get_students_for_class(
+        self,
+        db: AsyncSession,
+        teacher: User,
+        class_id: uuid.UUID,
+    ) -> dict:
+        await self._get_assignment_or_403(db, teacher.user_id, class_id)
+
+        class_result = await db.execute(select(Class).where(Class.class_id == class_id))
+        class_ = class_result.scalar_one_or_none()
+        if not class_:
+            raise HTTPException(status_code=404, detail="Class not found")
+
+        result = await db.execute(
+            select(User)
+            .join(Enrollment, Enrollment.student_id == User.user_id)
+            .where(
+                Enrollment.class_id == class_id,
+                Enrollment.is_active == True,
+            )
+            .order_by(User.first_name, User.last_name)
+        )
+        students = result.scalars().all()
+
+        return {
+            "class_id": str(class_id),
+            "grade": class_.grade_level,
+            "section": class_.section,
+            "total_students": len(students),
+            "students": [
+                {
+                    "user_id": str(s.user_id),
+                    "first_name": s.first_name,
+                    "last_name": s.last_name,
+                    "email": s.email,
+                }
+                for s in students
+            ],
+        }

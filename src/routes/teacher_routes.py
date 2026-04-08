@@ -182,3 +182,15 @@ async def get_book_ppt(
     current_user: User = Depends(require_role("teacher")),
 ):
     return await presentation_service.get_ppt_for_book(db=db, book_id=book_id)
+
+
+@router.get(
+    "/classes/{class_id}/students",
+    summary="Get all students in a class [teacher only]",
+)
+async def get_students_for_class(
+    class_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("teacher")),
+):
+    return await teacher_service.get_students_for_class(db, current_user, class_id)
