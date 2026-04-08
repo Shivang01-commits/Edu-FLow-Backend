@@ -1,6 +1,7 @@
 import os
 import httpx
 import random
+import asyncio
 from src.utils.image_utils import get_image_url
 
 PRESENTON_BASE_URL = "https://api.presenton.ai"
@@ -77,7 +78,6 @@ SUBJECT_KEYWORDS = {
 
 def get_smart_keyword(subject, title, description):
     base_keywords = SUBJECT_KEYWORDS.get(subject, SUBJECT_KEYWORDS["default"])
-
     text = (title + " " + description).lower()
 
     for kw in base_keywords:
@@ -105,19 +105,17 @@ def detect_subject(text: str):
 IMAGE_CACHE = {}
 
 
-def build_image(title: str, description: str):
+async def build_image(title: str, description: str):
     subject = detect_subject(title + " " + description)
-
-    # keywords = SUBJECT_KEYWORDS.get(subject, SUBJECT_KEYWORDS["default"])
     keyword = get_smart_keyword(subject, title, description)
+
     if keyword in IMAGE_CACHE:
         image_url = IMAGE_CACHE[keyword]
     else:
-        image_url = get_image_url(keyword)
+        # ✅ run blocking function in thread
+        image_url = await asyncio.to_thread(get_image_url, keyword)
         if image_url:
             IMAGE_CACHE[keyword] = image_url
-
-    image_url = get_image_url(keyword)
 
     if not image_url:
         image_url = "https://via.placeholder.com/1600x900?text=Education"
@@ -133,7 +131,7 @@ def build_image(title: str, description: str):
     }
 
 
-def transform_ppt_structure(
+async def transform_ppt_structure(
     ppt_structure: dict,
     template: str = "general",
     theme: str = "professional-dark",
@@ -153,14 +151,12 @@ def transform_ppt_structure(
             bullets = slide.get("bullet_points", [])
             description = " ".join(bullets)
 
-        # enforce limits
         description = description.strip()[:140]
 
         if len(description) < 10:
             description = "Key concepts explained clearly."
 
-        # 🖼️ generate image
-        image = build_image(title, description)
+        image = await build_image(title, description)
 
         slides.append(
             {
@@ -208,6 +204,7 @@ async def create_presentation_from_json(payload: dict) -> dict:
         return response.json()
 
 
+# ⚠️ KEEP THIS ONLY IF REALLY NEEDED
 async def download_pptx_bytes(download_url: str) -> bytes:
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.get(download_url)
