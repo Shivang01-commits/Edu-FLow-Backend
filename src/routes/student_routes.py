@@ -5,7 +5,7 @@ from src.db.main import get_db
 from src.db.models import User
 from src.services.db_services.student_service import StudentService
 from src.models.quiz_schema import SubmitQuizRequest
-from src.utils.jwt_handler import require_role,get_current_user
+from src.utils.jwt_handler import require_role, get_current_user
 
 router = APIRouter(prefix="/student", tags=["Student"])
 student_service = StudentService()
@@ -146,6 +146,7 @@ async def view_quiz_results(
     current_user: User = Depends(require_role("student")),
 ):
     return await student_service.view_quiz_results(db, current_user, quiz_attempt_id)
+
 
 @router.get("/quiz/attempts")
 async def get_quiz_attempts(

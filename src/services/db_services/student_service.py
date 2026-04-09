@@ -552,14 +552,14 @@ class StudentService:
     async def get_student_quiz_attempts(
         self,
         db: AsyncSession,
-     student: User,
+        student: User,
     ) -> list[dict]:
 
         result = await db.execute(
             select(Quiz)
             .where(
                 Quiz.student_id == student.user_id,
-                Quiz.status == "submitted",   # only attempted
+                Quiz.status == "submitted",
             )
             .order_by(Quiz.submitted_date.desc())
         )
@@ -568,13 +568,13 @@ class StudentService:
 
         return [
             {
-            "quiz_attempt_id": str(quiz.quiz_attempt_id),
-            "class_chapter_id": str(quiz.class_chapter_id),
-            "score": quiz.score,
-            "total_questions": quiz.total_questions,
-            "percentage": round(quiz.percentage, 2),
-            "submitted_date": quiz.submitted_date,
-            "status": quiz.status,
+                "quiz_attempt_id": str(quiz.quiz_attempt_id),
+                "class_chapter_id": str(quiz.class_chapter_id),
+                "score": quiz.score,
+                "total_questions": quiz.total_questions,
+                "percentage": round(quiz.percentage, 2),
+                "submitted_date": quiz.submitted_date,
+                "status": quiz.status,
             }
             for quiz in quiz_attempts
         ]
