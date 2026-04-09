@@ -295,7 +295,7 @@ class TeacherService:
                 book_id=book.book_id,
                 chapter_number=data.chapter_number,
                 teacher_id=teacher.user_id,
-                subject=data.subject,
+                subject=data.subject.lower().strip(),
                 custom_summary=None,
                 custom_qa_bank=None,
                 custom_quiz=None,
@@ -399,7 +399,7 @@ class TeacherService:
                     book_id=book.book_id,
                     chapter_number=data.chapter_number,
                     teacher_id=teacher.user_id,
-                    subject=data.subject,
+                    subject=data.subject.lower().strip(),
                 )
                 db.add(class_chapter)
                 await db.flush()
