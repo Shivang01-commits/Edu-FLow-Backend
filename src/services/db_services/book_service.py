@@ -194,7 +194,7 @@ class ClassChapterService:
             class_id=class_id,
             book_id=book_id,
             teacher_id=teacher_id,
-            subject=subject,
+            subject=subject.lower().strip(),
             custom_summary=None,
             custom_qa_bank=None,
             custom_quiz=None,
