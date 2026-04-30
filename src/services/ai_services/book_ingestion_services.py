@@ -37,7 +37,7 @@ class BookIngestionService:
         ppt = self.generate_ppt(summary, metadata)
 
         return {
-            "scraped_chapter": chapter_text,  # ✅ FIXED (CRITICAL)
+            "scraped_chapter": chapter_text,
             "summary": summary,
             "qa_bank": qa_bank,
             "quiz": quiz,
