@@ -1,4 +1,4 @@
-# PadhAI 🚀  
+# Edu FLow 🚀  
 
 ## 📌 Overview  
 **PadhAI** is an AI-powered Smart Classroom platform focused on transforming traditional teaching into an interactive, AI-driven learning experience.
